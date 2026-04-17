@@ -1,0 +1,6 @@
+lcl/
+*.patch
+*.orig
+*.rej
+digest.txt
+*logs*
