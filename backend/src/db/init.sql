@@ -1,0 +1,76 @@
+-- =============================================================
+--  Hire Hub — инициализация БД
+--  Запускается автоматически при первом старте контейнера db
+-- =============================================================
+
+-- Расширение для UUID
+CREATE EXTENSION IF NOT EXISTS "pgcrypto";
+
+-- =============================================================
+--  Таблица вакансий
+-- =============================================================
+CREATE TABLE IF NOT EXISTS jobs (
+  id               UUID          PRIMARY KEY DEFAULT gen_random_uuid(),
+
+  -- Источник
+  external_id      TEXT          NOT NULL,
+  source           TEXT          NOT NULL,   -- 'hh' | 'tg' | 'superjob' | 'habr'
+  url              TEXT          NOT NULL,
+
+  -- Основные поля
+  title            TEXT          NOT NULL,
+  company          TEXT,
+  description      TEXT,
+
+  -- Зарплата
+  salary_min       INTEGER,
+  salary_max       INTEGER,
+  salary_currency  TEXT          NOT NULL DEFAULT 'RUB',
+
+  -- Локация и формат
+  location         TEXT,
+  remote           BOOLEAN       NOT NULL DEFAULT false,
+
+  -- Опыт и занятость
+  experience       TEXT,         -- 'intern' | 'no_experience' | 'between1And3'
+  employment       TEXT,         -- 'full' | 'part' | 'contract'
+
+  -- Стек (массив строк)
+  stack            TEXT[]        NOT NULL DEFAULT '{}',
+
+  -- Даты
+  published_at     TIMESTAMPTZ   NOT NULL,
+  fetched_at       TIMESTAMPTZ   NOT NULL DEFAULT NOW(),
+
+  -- Сырой ответ от источника (для отладки)
+  raw              JSONB,
+
+  -- Дедупликация: одна вакансия = один источник + один внешний id
+  CONSTRAINT jobs_source_external_id_key UNIQUE (source, external_id)
+);
+
+-- Индексы для фильтрации
+CREATE INDEX IF NOT EXISTS jobs_source_idx      ON jobs (source);
+CREATE INDEX IF NOT EXISTS jobs_remote_idx      ON jobs (remote);
+CREATE INDEX IF NOT EXISTS jobs_experience_idx  ON jobs (experience);
+CREATE INDEX IF NOT EXISTS jobs_salary_min_idx  ON jobs (salary_min);
+CREATE INDEX IF NOT EXISTS jobs_published_idx   ON jobs (published_at DESC);
+CREATE INDEX IF NOT EXISTS jobs_stack_idx       ON jobs USING GIN (stack);
+
+-- Полнотекстовый поиск по заголовку
+CREATE INDEX IF NOT EXISTS jobs_title_fts_idx
+  ON jobs USING GIN (to_tsvector('russian', title));
+
+-- =============================================================
+--  Таблица избранного
+-- =============================================================
+CREATE TABLE IF NOT EXISTS favorites (
+  id          UUID          PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id     TEXT          NOT NULL,   -- UUID из X-User-Id / localStorage
+  job_id      UUID          NOT NULL    REFERENCES jobs (id) ON DELETE CASCADE,
+  created_at  TIMESTAMPTZ   NOT NULL DEFAULT NOW(),
+
+  CONSTRAINT favorites_user_job_key UNIQUE (user_id, job_id)
+);
+
+CREATE INDEX IF NOT EXISTS favorites_user_idx ON favorites (user_id);
