@@ -39,9 +39,9 @@ export function createJobCard(job, isFavorite = false, onToggleFavorite) {
             <span class="job-card__date">${localDate}</span>
             <span class="job-card__source tag-${job.source}">${job.source}</span>
         </div>
-    `;
+    `; // TODO: не использовать innerHTML в продакшене без санитайза, делать через createElement!!!
 
-    // Навешиваем слушатель на кнопку избранного
+    // TODO: делегировать клики на уровне списка, а не внутри каждой карточки, чтобы не плодить кучу замыканий и лисенеров
     const favBtn = card.querySelector('.job-card__fav-btn');
     favBtn.addEventListener('click', (e) => {
         e.preventDefault();

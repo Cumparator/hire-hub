@@ -11,7 +11,7 @@ export function initSearchBar(onSearch) {
             <input type="text" id="search-input" placeholder="Поиск вакансий (например: python remote:true)" autocomplete="off">
             <button id="search-btn">Найти</button>
         </div>
-    `;
+    `; // TODO: не использовать innerHTML в продакшене без санитайза, делать через createElement!!!
 
     const input = document.getElementById('search-input');
     const btn = document.getElementById('search-btn');
@@ -21,7 +21,7 @@ export function initSearchBar(onSearch) {
         onSearch(query);
     };
 
-    input.addEventListener('keyup', (e) => {
+    input.addEventListener('keyup', (e) => { // TODO: для лучшего accessibility, надо обернуть в форму и слушать submit, а не клик/keyup. это добавит поддержку мобильных клавиатур и экранных читалок
         if (e.key === 'Enter') {
             triggerSearch();
         }

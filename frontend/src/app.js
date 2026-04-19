@@ -8,7 +8,7 @@ import { initSearchBar } from './components/SearchBar.js';
 // В будущем тут будет import { parseQuery } from './utils/queryParser.js';
 
 let currentJobs = [];
-let favoriteIds = new Set();
+let favoriteIds = new Set(); // TODO: Надо бы уйти от глобальных переменных, это надо делать через контекст или стор, но в целом так тоже ок
 
 async function loadFavorites() {
     try {
@@ -56,12 +56,11 @@ async function handleToggleFavorite(jobId, isAdding, btnElement) {
 // Инициализация при загрузке
 document.addEventListener('DOMContentLoaded', async () => {
     initSearchBar(handleSearch);
+    initTabs();
     
     await loadFavorites(); // Сначала грузим id избранных
     await handleSearch(''); // Потом грузим дефолтный список вакансий
 });
-
-// Добавь это в frontend/src/app.js к существующему коду
 
 let currentTab = 'all'; // 'all' | 'favorites'
 
@@ -82,7 +81,7 @@ function initTabs() {
         currentTab = 'favorites';
         tabFav.classList.add('active');
         tabAll.classList.remove('active');
-        document.getElementById('search-container').style.display = 'none'; // Прячем поиск в избранном
+        document.getElementById('search-container').style.display = 'none'; // TODO: из js лучше не управлять стилями, а добавлять/удалять классы, и уже в CSS прописать, что .hidden { display: none }, а тут просто toggleClass('hidden')
         
         try {
             // Запрашиваем актуальное избранное (наши моки отработают)
@@ -93,12 +92,3 @@ function initTabs() {
         }
     });
 }
-
-// Вызови initTabs() внутри DOMContentLoaded:
-document.addEventListener('DOMContentLoaded', async () => {
-    initSearchBar(handleSearch);
-    initTabs(); // <-- Добавили
-    
-    await loadFavorites();
-    await handleSearch('');
-});
