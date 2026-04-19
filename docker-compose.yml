@@ -7,7 +7,6 @@ services:
       POSTGRES_USER: hirehub
       POSTGRES_PASSWORD: hirehub_secret
     volumes:
-      - volumes:
       - postgres_data:/var/lib/postgresql/data
       - ./backend/src/db/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
     ports:
