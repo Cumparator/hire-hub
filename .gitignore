@@ -4,3 +4,4 @@ lcl/
 *.rej
 digest.txt
 *logs*
+node_modules/
