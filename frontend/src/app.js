@@ -60,3 +60,45 @@ document.addEventListener('DOMContentLoaded', async () => {
     await loadFavorites(); // Сначала грузим id избранных
     await handleSearch(''); // Потом грузим дефолтный список вакансий
 });
+
+// Добавь это в frontend/src/app.js к существующему коду
+
+let currentTab = 'all'; // 'all' | 'favorites'
+
+// Функция инициализации табов
+function initTabs() {
+    const tabAll = document.getElementById('tab-all');
+    const tabFav = document.getElementById('tab-fav');
+
+    tabAll.addEventListener('click', () => {
+        currentTab = 'all';
+        tabAll.classList.add('active');
+        tabFav.classList.remove('active');
+        document.getElementById('search-container').style.display = 'block'; // Показываем поиск
+        renderJobs(currentJobs, favoriteIds, handleToggleFavorite);
+    });
+
+    tabFav.addEventListener('click', async () => {
+        currentTab = 'favorites';
+        tabFav.classList.add('active');
+        tabAll.classList.remove('active');
+        document.getElementById('search-container').style.display = 'none'; // Прячем поиск в избранном
+        
+        try {
+            // Запрашиваем актуальное избранное (наши моки отработают)
+            const data = await fetchFavorites();
+            renderJobs(data.jobs, favoriteIds, handleToggleFavorite);
+        } catch (err) {
+            console.error('Ошибка загрузки избранного', err);
+        }
+    });
+}
+
+// Вызови initTabs() внутри DOMContentLoaded:
+document.addEventListener('DOMContentLoaded', async () => {
+    initSearchBar(handleSearch);
+    initTabs(); // <-- Добавили
+    
+    await loadFavorites();
+    await handleSearch('');
+});

@@ -1,2 +1,75 @@
 /* Стили для компонентов по БЭМ. 
    Например: .job-card {}, .job-card__title {}, .search-bar__input {} */
+
+   /* frontend/src/styles/components.css */
+
+.job-card {
+    border: 1px solid #e0e0e0;
+    border-radius: 8px;
+    padding: 16px;
+    margin-bottom: 16px;
+    background: #fff;
+    font-family: sans-serif;
+}
+
+.job-card__header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-bottom: 8px;
+}
+
+.job-card__title {
+    margin: 0;
+    font-size: 1.2rem;
+}
+
+.job-card__title a {
+    text-decoration: none;
+    color: #2c3e50;
+}
+
+.job-card__fav-btn {
+    background: transparent;
+    border: 1px solid #ccc;
+    padding: 4px 8px;
+    border-radius: 4px;
+    cursor: pointer;
+}
+
+.job-card__fav-btn.active {
+    background: #fff3cd;
+    border-color: #ffeeba;
+    color: #856404;
+}
+
+.job-card__company {
+    color: #666;
+    margin-bottom: 8px;
+}
+
+.job-card__salary {
+    font-weight: bold;
+    margin-bottom: 12px;
+}
+
+.job-card__stack {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+    margin-bottom: 12px;
+}
+
+.tech-tag {
+    background: #f0f0f0;
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-size: 0.85rem;
+}
+
+.job-card__footer {
+    display: flex;
+    justify-content: space-between;
+    font-size: 0.85rem;
+    color: #999;
+}
