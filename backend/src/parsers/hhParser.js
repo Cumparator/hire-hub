@@ -1,35 +1,46 @@
 import { BaseParser } from './baseParser.js';
 
-// Документация HH.ru API: https://api.hh.ru/openapi/redoc
 const HH_API_BASE = 'https://api.hh.ru';
 const USER_AGENT = 'HireHub/1.0 (contact@hirehub.dev)';
 
-// Маппинг experience-ключей HH → наш формат
 const EXPERIENCE_MAP = {
-  noExperience:     'no_experience',
-  between1And3:     'between1And3',
-  noMatter:         null,
+  noExperience:   'no_experience',
+  between1And3:   'between1And3',
+  between3And6:   'between3And6',
+  moreThan6:      'moreThan6'
 };
+
+const REVERSE_EXPERIENCE_MAP = Object.fromEntries(
+  Object.entries(EXPERIENCE_MAP).map(([hhKey, ourKey]) => [ourKey, hhKey])
+);
 
 export class HhParser extends BaseParser {
   constructor() {
     super('hh');
   }
 
-  /**
-   * Получение вакансий с HH.ru
-   */
   async fetchJobs(filters = {}) {
     const params = new URLSearchParams({
-      text:         filters.text ?? 'junior',
-      area:         '113', // Россия
+      text:         filters.text || 'junior',
+      area:         filters.area || '113', 
       per_page:     '100',
       order_by:     'publication_time',
     });
 
-    if (filters.experience) params.set('experience', filters.experience);
-    if (filters.remote)     params.set('schedule', 'remote');
-    if (filters.salaryFrom) params.set('salary', String(filters.salaryFrom));
+    if (filters.experience && REVERSE_EXPERIENCE_MAP[filters.experience]) {
+      params.set('experience', REVERSE_EXPERIENCE_MAP[filters.experience]);
+    } else if (filters.experience) {
+      params.set('experience', filters.experience); 
+    }
+
+    if (filters.remote) {
+      params.set('schedule', 'remote');
+    }
+
+    if (filters.salaryFrom) {
+      params.set('salary', String(filters.salaryFrom));
+      params.set('only_with_salary', 'true');
+    }
 
     const allJobs = [];
     let page = 0;
@@ -47,19 +58,16 @@ export class HhParser extends BaseParser {
         const data = await resp.json();
         pages = data.pages;
 
-        // Для каждой вакансии получаем детали (описание и полный стек)
         for (const item of data.items) {
           try {
             const detailedJob = await this.#fetchJobDetails(item.id);
             allJobs.push(this.normalizeJob(item, detailedJob));
           } catch (err) {
             console.warn(`[HhParser] Не удалось загрузить детали вакансии ${item.id}:`, err.message);
-            allJobs.push(this.normalizeJob(item)); // Сохраняем без описания, если не вышло
+            allJobs.push(this.normalizeJob(item));
           }
         }
         page++;
-        
-        // Небольшая задержка, чтобы не поймать 429 Rate Limit
         await new Promise(resolve => setTimeout(resolve, 200));
       }
 
@@ -71,9 +79,6 @@ export class HhParser extends BaseParser {
     }
   }
 
-  /**
-   * Получение детальной информации о вакансии (описание, ключевые навыки)
-   */
   async #fetchJobDetails(vacancyId) {
     const resp = await fetch(`${HH_API_BASE}/vacancies/${vacancyId}`, {
       headers: { 'User-Agent': USER_AGENT }
@@ -84,10 +89,9 @@ export class HhParser extends BaseParser {
 
   normalizeJob(raw, detailed = null) {
     const description = detailed?.description 
-      ? detailed.description.replace(/<[^>]+>/g, ' ').trim() // Очистка от HTML
+      ? detailed.description.replace(/<[^>]+>/g, ' ').trim() 
       : null;
 
-    // Объединяем ключевые навыки из HH и наш поиск по тексту
     const hhSkills = detailed?.key_skills?.map(s => s.name.toLowerCase()) ?? [];
     const textToAnalyze = `${raw.name} ${description ?? ''} ${raw.snippet?.requirement ?? ''}`;
     const extractedStack = extractStack(textToAnalyze);
@@ -115,19 +119,14 @@ export class HhParser extends BaseParser {
   }
 }
 
-/**
- * Извлечение технологий из текста
- */
 function extractStack(text) {
   if (!text) return [];
   const lowerText = text.toLowerCase();
-
   const KNOWN_STACK = [
     'python', 'javascript', 'typescript', 'java', 'go', 'rust', 'c++', 'c#',
     'react', 'vue', 'angular', 'next.js', 'nuxt', 'node.js', 'express',
     'fastapi', 'django', 'flask', 'spring', 'postgresql', 'mysql', 'mongodb', 
     'redis', 'docker', 'kubernetes', 'git', 'linux', 'aws', 'azure'
   ];
-
   return KNOWN_STACK.filter((tech) => lowerText.includes(tech));
 }
