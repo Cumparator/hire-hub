@@ -1,46 +1,58 @@
 // frontend/src/api/client.js
-import { MOCK_JOBS } from './mockData.js';
 
-// Имитация БД для избранного (храним просто в памяти, сбросится при обновлении страницы)
-const mockFavorites = new Set();
+const API_BASE = 'http://localhost:4000/api';
 
-// Утилита для имитации задержки сети (500мс)
-const delay = (ms = 500) => new Promise(resolve => setTimeout(resolve, ms));
+function getUserId() {
+    let id = localStorage.getItem('hire_hub_user_id');
+    if (!id) {
+        id = crypto.randomUUID();
+        localStorage.setItem('hire_hub_user_id', id);
+    }
+    return id;
+}
+
+async function apiFetch(path, options = {}) {
+    const url = `${API_BASE}${path}`;
+    const res = await fetch(url, {
+        ...options,
+        headers: {
+            'Content-Type': 'application/json',
+            'X-User-Id': getUserId(),
+            ...options.headers,
+        },
+    });
+
+    if (res.status === 204) return null;
+
+    const text = await res.text();
+    try {
+        const data = JSON.parse(text);
+        if (!res.ok) throw Object.assign(new Error(data.error || 'API error'), { code: data.code, status: res.status });
+        return data;
+    } catch (e) {
+        throw new Error(`Сервер вернул не JSON (${res.status}): ${text.slice(0, 200)}`);
+    }
+}
 
 export async function fetchJobs(params = {}) {
-    await delay(); // Имитируем запрос
-    
-    let filteredJobs = [...MOCK_JOBS];
-
-    // Простейшая локальная фильтрация для тестов поиска
-    if (params.q) {
-        const query = params.q.toLowerCase();
-        filteredJobs = filteredJobs.filter(job => 
-            job.title.toLowerCase().includes(query) || 
-            job.stack.some(tech => tech.toLowerCase().includes(query))
-        );
+    const qs = new URLSearchParams();
+    for (const [k, v] of Object.entries(params)) {
+        if (v !== undefined && v !== null && v !== '') qs.set(k, v);
     }
-
-    return { 
-        jobs: filteredJobs, 
-        pagination: { page: 1, perPage: 20, total: filteredJobs.length, totalPages: 1 } 
-    };
+    return apiFetch(`/jobs?${qs}`);
 }
 
 export async function fetchFavorites() {
-    await delay(300);
-    const jobs = MOCK_JOBS.filter(job => mockFavorites.has(job.id));
-    return { jobs };
+    return apiFetch('/favorites');
 }
 
 export async function addFavorite(jobId) {
-    await delay(200);
-    mockFavorites.add(jobId);
-    return { favoriteId: crypto.randomUUID() };
+    return apiFetch('/favorites', {
+        method: 'POST',
+        body: JSON.stringify({ jobId }),
+    });
 }
 
 export async function removeFavorite(jobId) {
-    await delay(200);
-    mockFavorites.delete(jobId);
-    return null; // 204 No Content
+    return apiFetch(`/favorites/${jobId}`, { method: 'DELETE' });
 }

@@ -30,7 +30,7 @@ async function handleSearch(rawQuery) {
         renderJobs(currentJobs, favoriteIds, handleToggleFavorite);
     } catch (err) {
         console.error('Ошибка поиска:', err);
-        document.getElementById('jobs-list').innerHTML = '<div class="error">Не удалось загрузить вакансии</div>';
+        document.getElementById('jobs-list').innerHTML = '<div class="error">Ошибка: ' + err.message + '<br><small>' + (err.stack || '') + '</small></div>';
     }
 }
 
