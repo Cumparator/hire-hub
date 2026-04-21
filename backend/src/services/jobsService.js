@@ -54,21 +54,22 @@ export async function getJobs(params = {}) {
   const limit = Math.min(Number(per_page), 50);
   const offset = (Number(page) - 1) * limit;
 
-  values.push(limit, offset);
+  const currentValues = [...values];
+  currentValues.push(limit, offset);
 
   const sql = `
     SELECT *
     FROM jobs
     ${where}
     ORDER BY published_at DESC
-    LIMIT $${values.length - 1}
-    OFFSET $${values.length}
+    LIMIT $${currentValues.length - 1}
+    OFFSET $${currentValues.length}
   `;
 
-  const result = await query(sql, values);
+  const result = await query(sql, currentValues);
 
   // total count (без LIMIT)
-  const countResult = await query(`SELECT COUNT(*) FROM jobs ${where}`, values.slice(0, values.length - 2));
+  const countResult = await query(`SELECT COUNT(*) FROM jobs ${where}`, values);
 
   return {
     jobs: result.rows,
@@ -91,3 +92,53 @@ export async function getJobById(id) {
   );
   return result.rows[0] || null;
 }
+
+/**
+ * Подсчет вакансий по конкретному стеку для проверки лимитов парсера
+ */
+export async function countJobsByStack(stack, source = 'hh') {
+    const sql = `
+        SELECT COUNT(*) 
+        FROM jobs 
+        WHERE source = $1 AND $2 = ANY(stack)
+    `;
+    // Используем query из connection.js вместо несуществующего pool
+    const result = await query(sql, [source, stack.toLowerCase()]);
+    return parseInt(result.rows[0].count, 10);
+}
+
+/**
+ * Сохранение массива вакансий (Upsert)
+ */
+export async function saveJobs(jobs) {
+    for (const job of jobs) {
+        const sql = `
+            INSERT INTO jobs (
+                external_id, source, url, title, company, 
+                description, salary_min, salary_max, salary_currency,
+                location, remote, experience, employment, stack, published_at
+            )
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)
+            ON CONFLICT (external_id) DO NOTHING
+        `;
+        
+        const values = [
+            job.externalId, job.source, job.url, job.title, job.company,
+            job.description, job.salaryMin, job.salaryMax, job.salaryCurrency,
+            job.location, job.remote, job.experience, job.employment, 
+            job.stack.map(s => s.toLowerCase()), job.publishedAt
+        ];
+
+        await query(sql, values);
+    }
+}
+
+
+const jobsService = {
+  getJobs,
+  getJobById,
+  countJobsByStack,
+  saveJobs
+};
+
+export default jobsService;
