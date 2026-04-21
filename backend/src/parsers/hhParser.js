@@ -1,5 +1,5 @@
 import { BaseParser } from './baseParser.js';
-import { jobsService } from '../services/jobsService.js';
+import  jobsService  from '../services/jobsService.js';
 
 const FULL_STACK_LIST = [
     'JavaScript', 'TypeScript', 'Node.js', 'React', 'Vue', 'Angular', 'Next.js',
@@ -27,7 +27,6 @@ export class HhParser extends BaseParser {
         const allJobs = [];
 
         for (const stack of FULL_STACK_LIST) {
-            // ПРОВЕРКА: Сколько уже есть в базе?
             const existingCount = await jobsService.countJobsByStack(stack, 'hh');
             
             if (existingCount >= MIN_JOBS_PER_STACK) {

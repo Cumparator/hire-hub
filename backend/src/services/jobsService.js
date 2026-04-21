@@ -132,3 +132,13 @@ export async function saveJobs(jobs) {
         await query(sql, values);
     }
 }
+
+
+const jobsService = {
+  getJobs,
+  getJobById,
+  countJobsByStack,
+  saveJobs
+};
+
+export default jobsService;
