@@ -1,4 +1,4 @@
-import { BaseParser } from './BaseParser.js';
+import { BaseParser } from './baseParser.js';
 
 /**
  * Парсер Telegram-каналов.

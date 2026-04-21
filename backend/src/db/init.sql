@@ -13,7 +13,7 @@ CREATE TABLE IF NOT EXISTS jobs (
   id               UUID          PRIMARY KEY DEFAULT gen_random_uuid(),
 
   -- Источник
-  external_id      TEXT          NOT NULL,
+  external_id      TEXT          NOT NULL UNIQUE,
   source           TEXT          NOT NULL,   -- 'hh' | 'tg' | 'superjob' | 'habr'
   url              TEXT          NOT NULL,
 
