@@ -1,6 +1,16 @@
 import { BaseParser } from './baseParser.js';
+import { jobsService } from '../services/jobsService.js';
 
-const STACKS_TO_PARSE = ['Python', 'JavaScript', 'TypeScript', 'Java', 'Go', 'React', 'Node.js'];
+const FULL_STACK_LIST = [
+    'JavaScript', 'TypeScript', 'Node.js', 'React', 'Vue', 'Angular', 'Next.js',
+    'Python', 'Django', 'FastAPI', 'Flask', 
+    'Java', 'Spring', 'Kotlin', 'Android', 'Swift', 'iOS',
+    'Go', 'Rust', 'C++', 'C#', '.NET',
+    'PHP', 'Laravel', 'Symfony',
+    'DevOps', 'Docker', 'Kubernetes', 'PostgreSQL', 'MongoDB'
+];
+
+const MIN_JOBS_PER_STACK = 100;
 
 export class HhParser extends BaseParser {
     constructor() {
@@ -16,47 +26,49 @@ export class HhParser extends BaseParser {
     async fetchJobs() {
         const allJobs = [];
 
-        for (const stack of STACKS_TO_PARSE) {
-            console.log(`[HhParser] Fetching stack: ${stack}`);
+        for (const stack of FULL_STACK_LIST) {
+            // ПРОВЕРКА: Сколько уже есть в базе?
+            const existingCount = await jobsService.countJobsByStack(stack, 'hh');
+            
+            if (existingCount >= MIN_JOBS_PER_STACK) {
+                console.log(`[HhParser] Skipping ${stack}: already have ${existingCount} jobs.`);
+                continue;
+            }
+
+            console.log(`[HhParser] Parsing ${stack}: only ${existingCount} in DB...`);
+            
             try {
                 const jobs = await this.#scrapeByStack(stack);
-                allJobs.push(...jobs);
+                if (jobs.length > 0) {
+                    await this.saveJobs(jobs);
+                    allJobs.push(...jobs);
+                }
                 
+                // Имитация человека: пауза между запросами
                 await new Promise(r => setTimeout(r, 3000 + Math.random() * 2000));
             } catch (error) {
-                console.error(`[HhParser] Error for stack ${stack}:`, error.message);
+                console.error(`[HhParser] Failed to scrape ${stack}:`, error.message);
             }
-        }
-
-        if (allJobs.length > 0) {
-            await this.saveJobs(allJobs);
         }
         return allJobs;
     }
 
     async #scrapeByStack(stackText) {
         const url = `https://hh.ru/search/vacancy?text=${encodeURIComponent(stackText + ' junior')}&area=113&order_by=publication_time&items_on_page=50`;
-
         const response = await fetch(url, { headers: this.headers });
-        if (!response.ok) throw new Error(`HH HTTP Error: ${response.status}`);
-
+        
+        if (!response.ok) throw new Error(`Status ${response.status}`);
+        
         const html = await response.text();
         const jobs = [];
-
         const entryRegex = /data-qa="vacancy-serp__vacancy"([\s\S]*?)<div class="serp-item__footer"/g;
         
         let match;
         while ((match = entryRegex.exec(html)) !== null) {
             const block = match[1];
-
-            // Извлекаем ID
             const idMatch = block.match(/data-item-id="(\d+)"/);
-            // Извлекаем URL и Title
             const linkMatch = block.match(/data-qa="serp-item__title" [^>]*href="([^"]+)"[^>]*>([\s\S]*?)<\/a>/);
-            // Извлекаем Компанию
             const companyMatch = block.match(/data-qa="vacancy-serp__vacancy-employer"[^>]*>([\s\S]*?)<\/a>/);
-            // Извлекаем Город
-            const areaMatch = block.match(/data-qa="vacancy-serp__vacancy-address"[^>]*>([\s\S]*?)<\/span>/);
 
             if (idMatch && linkMatch) {
                 jobs.push({
@@ -65,7 +77,7 @@ export class HhParser extends BaseParser {
                     url: linkMatch[1].split('?')[0],
                     title: this.#cleanHtml(linkMatch[2]),
                     company: companyMatch ? this.#cleanHtml(companyMatch[1]) : 'Не указано',
-                    location: areaMatch ? this.#cleanHtml(areaMatch[1]) : 'Не указано',
+                    location: 'Россия', 
                     remote: block.includes('Удаленная работа') || block.includes('можно из дома'),
                     experience: 'no_experience',
                     stack: [stackText],
@@ -73,16 +85,10 @@ export class HhParser extends BaseParser {
                 });
             }
         }
-
-        console.log(`[HhParser] Extracted ${jobs.length} jobs for ${stackText}`);
         return jobs;
     }
 
     #cleanHtml(html) {
-        return html
-            .replace(/<[^>]*>?/gm, '')
-            .replace(/&nbsp;/g, ' ')
-            .replace(/&quot;/g, '"')
-            .trim();
+        return html.replace(/<[^>]*>?/gm, '').replace(/&nbsp;/g, ' ').replace(/&quot;/g, '"').trim();
     }
 }
