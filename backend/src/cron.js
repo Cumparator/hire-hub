@@ -1,4 +1,5 @@
 import { HhParser } from './parsers/hhParser.js';
+import { cleanupOldJobs } from './services/jobsService.js';
 import { TgParser } from './parsers/tgParser.js';
 
 const hhParser = new HhParser();
@@ -18,6 +19,14 @@ export function startCronJobs() {
 
 async function runAll() {
   console.log('[CRON] Запуск парсеров', new Date().toISOString());
+  // Чистим устаревшие вакансии раз в сутки (при каждом запуске cron)
+  try {
+    const deleted = await cleanupOldJobs();
+    if (deleted > 0) console.log(`[CRON] Cleanup: удалено ${deleted} вакансий старше 10 дней`);
+  } catch (err) {
+    console.error('[CRON] Cleanup error:', err.message);
+  }
+
   await Promise.allSettled([
     runParser('HH',       () => hhParser.fetchJobs(DEFAULT_FILTERS)),
     runParser('Telegram', () => tgParser.fetchJobs()),

@@ -19,6 +19,8 @@ services:
       DATABASE_URL: postgres://hirehub:hirehub_secret@db:5432/hirehub
       PORT: 4000
       CORS_ORIGIN: http://localhost:3000
+      HH_TOKEN: ${HH_TOKEN}
+      HH_APP_NAME: HireHub/1.0 (contact@hirehub.dev)
       # TG_CHANNELS=junior_jobs_it,it_work_ru
     ports:
       - "4000:4000"

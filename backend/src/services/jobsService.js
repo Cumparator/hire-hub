@@ -162,3 +162,11 @@ const jobsService = {
 };
 
 export default jobsService;
+
+export async function cleanupOldJobs() {
+  // Удаляем вакансии старше 10 дней
+  const result = await query(
+    `DELETE FROM jobs WHERE published_at < NOW() - INTERVAL '10 days'`
+  );
+  return result.rowCount;
+}
