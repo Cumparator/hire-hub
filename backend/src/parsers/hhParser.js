@@ -1,4 +1,4 @@
-import { BaseParser } from './BaseParser.js';
+import { BaseParser } from './baseParser.js';
 import jobsService from '../services/jobsService.js';
 
 const HH_API  = 'https://api.hh.ru';
