@@ -10,7 +10,8 @@ export async function getJobs(params = {}) {
     remote,
     experience,
     stack,
-    salary_from,
+    salary,       // новый параметр: ">100000" | "<80000" | "90000"
+    salary_from,  // legacy-параметр, оставляем для совместимости
     page = 1,
     per_page = 20,
   } = params;
@@ -18,66 +19,85 @@ export async function getJobs(params = {}) {
   const values = [];
   const conditions = [];
 
-  // --- фильтры ---
+  // Вспомогательная функция — добавляет значение и возвращает его placeholder
+  const push = (val) => { values.push(val); return `$${values.length}`; };
 
+  // --- freetext: поиск по title и description ---
   if (q) {
-    values.push(`%${q.toLowerCase()}%`);
-    conditions.push(`(LOWER(title) LIKE $${values.length} OR LOWER(description) LIKE $${values.length})`);
+    const ph = push(`%${q.toLowerCase()}%`);
+    conditions.push(`(LOWER(title) LIKE ${ph} OR LOWER(description) LIKE ${ph})`);
   }
 
-  if (remote === 'true') {
-    conditions.push(`remote = true`);
-  }
+  // --- remote ---
+  if (remote === 'true')  conditions.push(`remote = true`);
+  if (remote === 'false') conditions.push(`remote = false`);
 
+  // --- experience ---
   if (experience) {
-    values.push(experience);
-    conditions.push(`experience = $${values.length}`);
+    conditions.push(`experience = ${push(experience)}`);
   }
 
+  // --- stack: массив через @> (вакансия должна содержать ВСЕ запрошенные технологии) ---
   if (stack) {
-    const stackList = stack.split(',').map(s => s.trim().toLowerCase());
-    stackList.forEach((tech) => {
-      values.push(tech);
-      conditions.push(`$${values.length} = ANY (stack)`);
-    });
+    const stackArr = stack
+      .split(',')
+      .map(s => s.trim().toLowerCase())
+      .filter(Boolean);
+
+    if (stackArr.length) {
+      // stack @> ARRAY[$1,$2,...] — «стек вакансии содержит все элементы массива»
+      const placeholders = stackArr.map(tech => push(tech));
+      conditions.push(`stack @> ARRAY[${placeholders.join(', ')}]::text[]`);
+    }
   }
 
-  if (salary_from) {
-    values.push(Number(salary_from));
-    conditions.push(`salary_min >= $${values.length}`);
+  // --- salary: парсим оператор > / < из строки ---
+  const rawSalary = salary || salary_from;
+  if (rawSalary) {
+    const strVal = String(rawSalary).trim();
+    if (strVal.startsWith('>')) {
+      const num = Number(strVal.slice(1));
+      if (!isNaN(num)) conditions.push(`salary_min > ${push(num)}`);
+    } else if (strVal.startsWith('<')) {
+      const num = Number(strVal.slice(1));
+      if (!isNaN(num)) conditions.push(`salary_max < ${push(num)}`);
+    } else {
+      const num = Number(strVal);
+      if (!isNaN(num)) conditions.push(`salary_min >= ${push(num)}`);
+    }
   }
 
   // --- WHERE ---
   const where = conditions.length ? `WHERE ${conditions.join(' AND ')}` : '';
 
   // --- пагинация ---
-  const limit = Math.min(Number(per_page), 50);
-  const offset = (Number(page) - 1) * limit;
+  const limit  = Math.min(Math.max(Number(per_page) || 20, 1), 50);
+  const offset = (Math.max(Number(page) || 1, 1) - 1) * limit;
 
-  const currentValues = [...values];
-  currentValues.push(limit, offset);
+  const dataValues  = [...values, limit, offset];
+  const limitPh     = `$${dataValues.length - 1}`;
+  const offsetPh    = `$${dataValues.length}`;
 
   const sql = `
     SELECT *
     FROM jobs
     ${where}
     ORDER BY published_at DESC
-    LIMIT $${currentValues.length - 1}
-    OFFSET $${currentValues.length}
+    LIMIT ${limitPh}
+    OFFSET ${offsetPh}
   `;
 
-  const result = await query(sql, currentValues);
-
-  // total count (без LIMIT)
+  const result      = await query(sql, dataValues);
   const countResult = await query(`SELECT COUNT(*) FROM jobs ${where}`, values);
+  const total       = Number(countResult.rows[0].count);
 
   return {
     jobs: result.rows.map(normalizeRow),
     pagination: {
-      page: Number(page),
-      perPage: limit,
-      total: Number(countResult.rows[0].count),
-      totalPages: Math.ceil(countResult.rows[0].count / limit),
+      page:       Math.max(Number(page) || 1, 1),
+      perPage:    limit,
+      total,
+      totalPages: Math.ceil(total / limit),
     },
   };
 }

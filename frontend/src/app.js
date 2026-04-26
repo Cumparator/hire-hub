@@ -5,7 +5,6 @@
 import { fetchJobs, addFavorite, removeFavorite, fetchFavorites } from './api/client.js';
 import { renderJobs } from './components/JobList.js';
 import { initSearchBar } from './components/SearchBar.js';
-// В будущем тут будет import { parseQuery } from './utils/queryParser.js';
 
 let currentJobs = [];
 let favoriteIds = new Set(); // TODO: Надо бы уйти от глобальных переменных, это надо делать через контекст или стор, но в целом так тоже ок
@@ -19,11 +18,8 @@ async function loadFavorites() {
     }
 }
 
-async function handleSearch(rawQuery) {
-    // Пока queryParser не реализован (Этап 3), передаем просто как текстовый поиск
-    // В будущем: const params = parseQuery(rawQuery);
-    const params = { q: rawQuery }; 
-    
+// Принимает уже разобранный объект параметров от SearchBar → parseQuery → toApiParams
+async function handleSearch(params = {}) {
     try {
         const data = await fetchJobs(params);
         currentJobs = data.jobs;
