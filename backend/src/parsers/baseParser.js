@@ -59,7 +59,24 @@ export class BaseParser {
             location, remote, experience, employment, stack, published_at, raw)
          VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16)
          ON CONFLICT (source, external_id) DO UPDATE
-           SET title=$4, salary_min=$7, salary_max=$8, fetched_at=NOW()`,
+           SET url = EXCLUDED.url,
+               title = EXCLUDED.title,
+               company = EXCLUDED.company,
+               description = EXCLUDED.description,
+               salary_min = EXCLUDED.salary_min,
+               salary_max = EXCLUDED.salary_max,
+               salary_currency = EXCLUDED.salary_currency,
+               location = EXCLUDED.location,
+               remote = EXCLUDED.remote,
+               experience = EXCLUDED.experience,
+               employment = EXCLUDED.employment,
+               stack = ARRAY(
+                 SELECT DISTINCT tag
+                 FROM unnest(COALESCE(jobs.stack, '{}') || COALESCE(EXCLUDED.stack, '{}')) AS tag
+               ),
+               published_at = EXCLUDED.published_at,
+               raw = EXCLUDED.raw,
+               fetched_at = NOW()`,
         [
           job.externalId, job.source, job.url, job.title, job.company,
           job.description, job.salaryMin, job.salaryMax, job.salaryCurrency ?? 'RUB',

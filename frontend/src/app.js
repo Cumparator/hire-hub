@@ -10,10 +10,12 @@ let favoriteIds = new Set();
 let currentPage = 1;
 let currentPagination = null;
 const JOBS_PER_PAGE = 20;
+const REFRESH_POLL_INTERVAL_MS = 5000;
 
 // Текущие параметры от каждого источника — мержим перед запросом
 let searchParams = {};
 let filterParams = {};
+let refreshTimerId = null;
 
 function buildRequestParams() {
     return {
@@ -35,27 +37,33 @@ async function loadFavorites() {
 
 async function doSearch() {
     const params = buildRequestParams();
+    const requestKey = JSON.stringify(params);
     const listEl = document.getElementById('jobs-list');
     try {
         const data = await fetchJobs(params);
+        if (requestKey !== JSON.stringify(buildRequestParams()) || currentTab !== 'all') {
+            return;
+        }
+
         currentJobs = data.jobs;
         currentPagination = data.pagination ?? null;
         renderJobs(currentJobs, favoriteIds, handleToggleFavorite);
         renderServerPagination();
 
-        // Если бэкенд запустил фоновый парсинг — показываем баннер
         if (data.refreshing) {
-            showRefreshingBanner(listEl, params);
+            renderRefreshingBanner(listEl);
+            scheduleRefreshPolling(requestKey);
+        } else {
+            stopRefreshPolling();
         }
     } catch (err) {
+        stopRefreshPolling();
         console.error('Ошибка поиска:', err);
         listEl.innerHTML = '<div class="error">Ошибка: ' + err.message + '</div>';
     }
 }
 
-// Показывает баннер "обновляем" и через N секунд перезапрашивает список
-function showRefreshingBanner(listEl, params) {
-    // Убираем старый баннер если есть
+function renderRefreshingBanner(listEl) {
     listEl.querySelector('.refreshing-banner')?.remove();
 
     const banner = document.createElement('div');
@@ -65,19 +73,26 @@ function showRefreshingBanner(listEl, params) {
         Ищем свежие вакансии по фильтру, обновим через несколько секунд...
     `;
     listEl.prepend(banner);
+}
 
-    // Повторный запрос через 5 секунд
-    setTimeout(async () => {
-        banner.remove();
-        const merged = buildRequestParams();
-        // Проверяем что фильтры не изменились пока ждали
-        const stillSame = JSON.stringify(merged) === JSON.stringify(params);
-        if (stillSame) await doSearch();
-    }, 5000);
+function scheduleRefreshPolling(requestKey) {
+    clearTimeout(refreshTimerId);
+    refreshTimerId = setTimeout(async () => {
+        if (currentTab !== 'all') return;
+        if (requestKey !== JSON.stringify(buildRequestParams())) return;
+        await doSearch();
+    }, REFRESH_POLL_INTERVAL_MS);
+}
+
+function stopRefreshPolling() {
+    clearTimeout(refreshTimerId);
+    refreshTimerId = null;
+    document.querySelector('#jobs-list .refreshing-banner')?.remove();
 }
 
 // Вызывается из SearchBar (уже разобранные params)
 function handleSearch(params) {
+    stopRefreshPolling();
     searchParams = params;
     currentPage = 1;
     doSearch();
@@ -85,6 +100,7 @@ function handleSearch(params) {
 
 // Вызывается из FilterPanel
 function handleFilter(params) {
+    stopRefreshPolling();
     filterParams = params;
     currentPage = 1;
     doSearch();
@@ -125,6 +141,7 @@ function initTabs() {
     const tabFav = document.getElementById('tab-fav');
 
     tabAll.addEventListener('click', () => {
+        stopRefreshPolling();
         currentTab = 'all';
         tabAll.classList.add('active');
         tabFav.classList.remove('active');
@@ -132,9 +149,13 @@ function initTabs() {
         document.getElementById('filters-inline').classList.remove('hidden');
         renderJobs(currentJobs, favoriteIds, handleToggleFavorite);
         renderServerPagination();
+        if (currentJobs.length === 0) {
+            doSearch();
+        }
     });
 
     tabFav.addEventListener('click', async () => {
+        stopRefreshPolling();
         currentTab = 'favorites';
         tabFav.classList.add('active');
         tabAll.classList.remove('active');

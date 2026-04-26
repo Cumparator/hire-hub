@@ -4,14 +4,19 @@ import { query } from '../db/connection.js';
 
 const MIN_RESULTS = 50;
 const STALE_DAYS  = 1;
-// Сколько раз фронт может повторно опросить после refreshing=true, прежде чем мы
-// перестанем отвечать refreshing=true (защита от бесконечного опроса)
-const MAX_REFRESH_ATTEMPTS = 3;
+// Максимальное окно, в течение которого фронт может продолжать автоопрос,
+// пока фоновый парсинг еще идет.
+const MAX_REFRESH_WINDOW_MS = 2 * 60 * 1000;
+// После завершения фонового парсинга не перезапускаем его сразу же повторно
+// для того же набора фильтров, даже если вакансий всё ещё меньше MIN_RESULTS.
+const REFRESH_COOLDOWN_MS = 30 * 60 * 1000;
 
 const hhParser = new HhParser();
 
 // key → { startedAt: Date, attempts: number }
 const inProgress = new Map();
+// key → { finishedAt: Date }
+const recentRefreshes = new Map();
 
 async function checkFreshness(params) {
   const values = [];
@@ -53,8 +58,13 @@ async function checkFreshness(params) {
 
 function toParserFilters(params) {
   const filters = {};
-  const keywords = [params.q, params.stack?.replace(/,/g, ' OR ')].filter(Boolean).join(' ');
-  if (keywords) filters.text = keywords;
+  if (params.q) filters.query = String(params.q).trim();
+  if (params.stack) {
+    filters.stacks = String(params.stack)
+      .split(',')
+      .map(s => s.trim())
+      .filter(Boolean);
+  }
   if (params.remote === 'true') filters.schedule = 'remote';
   if (params.experience) filters.experience = String(params.experience).split(',')[0].trim();
   return filters;
@@ -83,6 +93,7 @@ function triggerBackgroundFetch(params) {
   hhParser.fetchJobs(toParserFilters(params))
     .then(jobs => {
       console.log(`[searchService] Парсинг завершён (${key}): ${jobs.length} вакансий`);
+      recentRefreshes.set(key, { finishedAt: new Date() });
     })
     .catch(err => {
       console.error(`[searchService] Ошибка парсинга (${key}):`, err.message);
@@ -101,18 +112,31 @@ export async function smartSearch(params) {
   const needsRefresh = freshness.count < MIN_RESULTS || freshness.stale;
   const key = cacheKey(params);
   const progress = inProgress.get(key);
+  const recentRefresh = recentRefreshes.get(key);
 
-  // Уже парсим — проверяем не превысили ли лимит попыток
-  const tooManyAttempts = progress && progress.attempts >= MAX_REFRESH_ATTEMPTS;
+  // Уже парсим — ограничиваем автоопрос по времени, а не по слишком маленькому
+  // числу попыток, иначе фронт может перестать ждать раньше завершения парсинга.
+  const tooLongRefreshing = progress
+    && (Date.now() - progress.startedAt.getTime()) >= MAX_REFRESH_WINDOW_MS;
+  const inCooldown = recentRefresh
+    && (Date.now() - recentRefresh.finishedAt.getTime()) < REFRESH_COOLDOWN_MS;
 
   let refreshing = false;
-  if (needsRefresh && !tooManyAttempts) {
+  if (needsRefresh && !tooLongRefreshing && !inCooldown) {
     triggerBackgroundFetch(params);
     refreshing = true;
   }
 
-  if (tooManyAttempts) {
-    console.warn(`[searchService] Достигнут лимит попыток для (${key}), останавливаем опрос`);
+  if (progress && !tooLongRefreshing) {
+    refreshing = true;
+  }
+
+  if (tooLongRefreshing) {
+    console.warn(`[searchService] Превышено окно автоопроса для (${key}), останавливаем опрос`);
+  }
+
+  if (inCooldown) {
+    console.log(`[searchService] Для (${key}) действует cooldown после недавнего парсинга`);
   }
 
   return {

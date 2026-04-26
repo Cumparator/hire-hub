@@ -49,6 +49,7 @@ function getUserId() {
 async function apiFetch(path, options = {}) {
     const url = `${API_BASE}${path}`;
     const res = await fetch(url, {
+        cache: 'no-store',
         ...options,
         headers: {
             'Content-Type': 'application/json',

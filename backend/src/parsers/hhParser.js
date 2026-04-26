@@ -12,6 +12,13 @@ const EXPERIENCE_MAP = {
     moreThan6:    'moreThan6',
 };
 
+const REVERSE_EXPERIENCE_MAP = {
+    no_experience: 'noExperience',
+    between1And3: 'between1And3',
+    between3And6: 'between3And6',
+    moreThan6: 'moreThan6',
+};
+
 const FULL_STACK_LIST = [
     'JavaScript', 'TypeScript', 'Node.js', 'React', 'Vue', 'Angular', 'Next.js',
     'Python', 'Django', 'FastAPI', 'Flask',
@@ -36,13 +43,15 @@ export class HhParser extends BaseParser {
 
     // ── Точка входа ──────────────────────────────────────────────────────────
 
-    async fetchJobs() {
+    async fetchJobs(filters = {}) {
         const useApi = !!process.env.HH_TOKEN;
         console.log(`[HhParser] Режим: ${useApi ? "API (token из env)" : "scraper (fallback)"}`);
 
         const allJobs = [];
+        const searchTargets = this.#buildSearchTargets(filters);
 
-        for (const stack of FULL_STACK_LIST) {
+        for (const target of searchTargets) {
+            const stack = target.stack;
             const existingCount = await jobsService.countJobsByStack(stack, 'hh');
 
             if (existingCount >= MIN_JOBS_PER_STACK) {
@@ -54,8 +63,8 @@ export class HhParser extends BaseParser {
 
             try {
                 const jobs = useApi
-                    ? await this.#fetchByApi(stack)
-                    : await this.#fetchByScraper(stack);
+                    ? await this.#fetchByApi(target, filters)
+                    : await this.#fetchByScraper(target, filters);
 
                 if (jobs.length > 0) {
                     await this.saveJobs(jobs);
@@ -88,6 +97,18 @@ export class HhParser extends BaseParser {
         return allJobs;
     }
 
+    #buildSearchTargets(filters) {
+        const stacks = Array.isArray(filters.stacks) && filters.stacks.length
+            ? filters.stacks
+            : FULL_STACK_LIST;
+        const query = filters.query?.trim();
+
+        return stacks.map((stack) => ({
+            stack,
+            text: query ? `${query} ${stack}`.trim() : `${stack} junior`,
+        }));
+    }
+
     // ── OAuth API ────────────────────────────────────────────────────────────
 
     async #apiFetch(path, params = {}) {
@@ -108,23 +129,25 @@ export class HhParser extends BaseParser {
         return resp.json();
     }
 
-    async #fetchByApi(stackText) {
+    async #fetchByApi(target, filters) {
         const jobs = [];
         let page = 0;
         let pages = 1;
 
         while (page < pages && page < 20) {
             const data = await this.#apiFetch('/vacancies', {
-                text:     `${stackText} junior`,
+                text:     target.text,
                 area:     '113',
                 per_page: '100',
                 page:     String(page),
                 order_by: 'publication_time',
+                ...(filters.schedule ? { schedule: filters.schedule } : {}),
+                ...(filters.experience ? { experience: REVERSE_EXPERIENCE_MAP[filters.experience] ?? filters.experience } : {}),
             });
 
             pages = data.pages;
             for (const item of data.items) {
-                jobs.push(this.#normalizeApiJob(item, stackText));
+                jobs.push(this.#normalizeApiJob(item, target.stack));
             }
 
             page++;
@@ -163,11 +186,11 @@ export class HhParser extends BaseParser {
 
     // ── Scraper fallback ─────────────────────────────────────────────────────
 
-    async #fetchByScraper(stackText) {
-        const url = `https://hh.ru/search/vacancy?text=${encodeURIComponent(stackText + ' junior')}&area=113&order_by=publication_time&items_on_page=50`;
+    async #fetchByScraper(target) {
+        const url = `https://hh.ru/search/vacancy?text=${encodeURIComponent(target.text)}&area=113&order_by=publication_time&items_on_page=50`;
         const response = await fetch(url, { headers: this.scrapeHeaders });
         if (!response.ok) throw new Error(`Scraper status ${response.status}`);
-        return this.#parseHtml(await response.text(), stackText);
+        return this.#parseHtml(await response.text(), target.stack);
     }
 
     #parseHtml(html, stackText) {
