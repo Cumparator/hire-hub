@@ -5,5 +5,4 @@ lcl/
 digest.txt
 *logs*
 node_modules/
-.env
-*.env
+*.env*

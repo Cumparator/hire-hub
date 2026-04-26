@@ -1,4 +1,5 @@
 import { query } from '../db/connection.js';
+import { normalizeRow } from './jobsService.js';
 
 /**
  * Получить избранные вакансии пользователя
@@ -15,7 +16,7 @@ export async function getFavorites(userId) {
     [userId]
   );
 
-  return result.rows;
+  return result.rows.map(normalizeRow);
 }
 
 /**

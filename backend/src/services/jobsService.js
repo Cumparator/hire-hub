@@ -173,6 +173,8 @@ function normalizeRow(row) {
   };
 }
 
+export { normalizeRow };
+
 const jobsService = { getJobs, getJobById, countJobsByStack, saveJobs };
 export default jobsService;
 

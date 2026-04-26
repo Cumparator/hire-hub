@@ -1,6 +1,6 @@
 // frontend/src/api/client.js
 
-const API_BASE = 'http://localhost:4000/api';
+const API_BASE = import.meta.env.VITE_API_URL || '/api';
 
 function getUserId() {
     let id = localStorage.getItem('hire_hub_user_id');
