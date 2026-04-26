@@ -72,7 +72,7 @@ export async function getJobs(params = {}) {
   const countResult = await query(`SELECT COUNT(*) FROM jobs ${where}`, values);
 
   return {
-    jobs: result.rows,
+    jobs: result.rows.map(normalizeRow),
     pagination: {
       page: Number(page),
       perPage: limit,
@@ -90,7 +90,7 @@ export async function getJobById(id) {
     `SELECT * FROM jobs WHERE id = $1`,
     [id]
   );
-  return result.rows[0] || null;
+  return result.rows[0] ? normalizeRow(result.rows[0]) : null;
 }
 
 /**
@@ -100,7 +100,7 @@ export async function countJobsByStack(stack, source = 'hh') {
     const sql = `
         SELECT COUNT(*) 
         FROM jobs 
-        WHERE source = $1 AND $2 = ANY(stack)
+        WHERE source = $1 AND $2 ILIKE ANY(stack)
     `;
     // Используем query из connection.js вместо несуществующего pool
     const result = await query(sql, [source, stack.toLowerCase()]);
@@ -119,7 +119,7 @@ export async function saveJobs(jobs) {
                 location, remote, experience, employment, stack, published_at
             )
             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)
-            ON CONFLICT (external_id) DO NOTHING
+            ON CONFLICT (source, external_id) DO NOTHING
         `;
         
         const values = [
@@ -133,6 +133,26 @@ export async function saveJobs(jobs) {
     }
 }
 
+
+function normalizeRow(row) {
+  return {
+    id:             row.id,
+    source:         row.source,
+    url:            row.url,
+    title:          row.title,
+    company:        row.company,
+    description:    row.description,
+    salaryMin:      row.salary_min,
+    salaryMax:      row.salary_max,
+    salaryCurrency: row.salary_currency,
+    location:       row.location,
+    remote:         row.remote,
+    experience:     row.experience,
+    employment:     row.employment,
+    stack:          row.stack,
+    publishedAt:    row.published_at,
+  };
+}
 
 const jobsService = {
   getJobs,
