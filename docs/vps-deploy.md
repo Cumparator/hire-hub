@@ -1,71 +1,80 @@
-# Развёртывание на VPS (по IP, без домена)
+# Развёртывание стенда на VPS
 
-Этот проект можно развернуть на VPS без домена и без TLS-сертификата.
+Документ описывает порядок поднятия, обновления и остановки временного стенда `Hire Hub` на VPS по IP-адресу, без домена и без TLS.
 
-## Что делает эта схема
+## Назначение стенда
 
-- раздаёт фронтенд через `nginx` на порту `80`
-- проксирует запросы `/api/*` из `nginx` в backend
-- держит `postgres` закрытым внутри Docker-сети
-- держит backend закрытым внутри Docker-сети
+- предоставить команде общий доступ к приложению по IP-адресу
+- изолировать окружение от локальных машин разработчиков
+- дать возможность быстро поднять и так же быстро полностью свернуть стенд после тестирования
 
-Снаружи доступен только фронтенд-контейнер.
+## Состав стенда
 
-## Что нужно заранее
+- `frontend` — статическая сборка, раздаётся через `nginx`
+- `backend` — Node.js API
+- `db` — PostgreSQL
 
-1. VPS на Ubuntu.
-2. Открытые входящие порты `22` и `80`.
-3. Установленные Docker Engine и Docker Compose plugin.
-4. Репозиторий, который будет лежать в отдельной директории, например `/srv/hire-hub`.
+Снаружи публикуется только порт фронтенда. База данных и backend остаются внутри Docker-сети.
 
-## Отдельное место для проекта
+## Размещение на сервере
 
-Создай отдельного Unix-пользователя для деплоя и держи проект под ним:
+Проект разворачивается в отдельной директории:
 
 ```bash
-sudo adduser deployer
-sudo mkdir -p /srv/hire-hub
-sudo chown -R deployer:deployer /srv/hire-hub
+/srv/hire-hub
 ```
 
-Важно: если добавить пользователя в группу `docker`, это по сути почти root-доступ на сервере. Если команде нельзя давать такой уровень доступа, не давай им shell-доступ с правами на Docker. Безопасный базовый вариант такой:
+Рекомендуемая модель доступа:
 
-- один deploy-пользователь владеет стеком
-- остальная команда получает только URL приложения
-- деплой делает тот, у кого есть доступ к VPS
+- отдельный системный пользователь `deployer`
+- проектовые файлы принадлежат `deployer`
+- Docker-команды выполняются только от имени `deployer`
+
+Важно: доступ к Docker на сервере по сути эквивалентен расширенным системным правам. Команде не следует выдавать shell-доступ с правом управлять Docker, если это не требуется организационно.
 
 ## Подготовка сервера
+
+Требования:
+
+- Ubuntu VPS
+- открытые входящие порты `22` и `80`
+- установленный Docker Engine
+- установленный Docker Compose plugin
+
+Пример базовой подготовки:
 
 ```bash
 sudo apt update
 sudo apt install -y ca-certificates curl git
 curl -fsSL https://get.docker.com | sh
+sudo adduser deployer
+sudo mkdir -p /srv/hire-hub
+sudo chown -R deployer:deployer /srv/hire-hub
 sudo usermod -aG docker deployer
 ```
 
-После этого переподключись уже под `deployer`.
+После этого работа со стендом ведётся под пользователем `deployer`.
 
 ## Подготовка проекта
 
 ```bash
 cd /srv/hire-hub
-git clone <URL_ТВОЕГО_РЕПО> .
+git clone <URL_РЕПОЗИТОРИЯ> .
 cp .env.prod.example .env.prod
-nano .env.prod
 ```
 
-Минимум нужно задать:
+Файл `.env.prod` должен быть заполнен как минимум следующими значениями:
 
 ```env
-POSTGRES_PASSWORD=твой_надёжный_пароль
-HH_TOKEN=твой_hh_token
-PUBLIC_ORIGIN=http://IP_ТВОЕГО_СЕРВЕРА
+POSTGRES_PASSWORD=надёжный_пароль
+HH_TOKEN=токен_hh
+PUBLIC_ORIGIN=http://IP_СЕРВЕРА
 FRONTEND_PORT=80
 ```
 
-## Запуск стека
+## Первый запуск
 
-Перед новым запуском всегда сначала опускай старый стек:
+Для запуска используется отдельный production-compose файл:
 
 ```bash
 cd /srv/hire-hub
@@ -77,17 +86,20 @@ docker compose --env-file .env.prod -f docker-compose.prod.yml up --build -d
 
 ```bash
 docker compose --env-file .env.prod -f docker-compose.prod.yml ps
-docker compose --env-file .env.prod -f docker-compose.prod.yml logs -f frontend
-docker compose --env-file .env.prod -f docker-compose.prod.yml logs -f backend
+docker compose --env-file .env.prod -f docker-compose.prod.yml logs --tail=100 backend
+docker compose --env-file .env.prod -f docker-compose.prod.yml logs --tail=100 frontend
+docker compose --env-file .env.prod -f docker-compose.prod.yml logs --tail=100 db
 ```
 
-Открывать в браузере:
+После успешного старта приложение доступно по адресу:
 
 ```text
-http://IP_ТВОЕГО_СЕРВЕРА
+http://IP_СЕРВЕРА
 ```
 
-## Обновление после изменений в коде
+## Обновление стенда
+
+После изменений в коде используется полный пересбор:
 
 ```bash
 cd /srv/hire-hub
@@ -96,25 +108,56 @@ docker compose --env-file .env.prod -f docker-compose.prod.yml down
 docker compose --env-file .env.prod -f docker-compose.prod.yml up --build -d
 ```
 
-## Как аккуратно всё свернуть
+Такой порядок обязателен для текущего окружения, чтобы избежать конфликтов со старыми контейнерами.
 
-Остановить контейнеры, но оставить данные базы:
+## Диагностика
+
+Проверка контейнеров:
+
+```bash
+docker compose --env-file .env.prod -f docker-compose.prod.yml ps
+```
+
+Просмотр логов backend:
+
+```bash
+docker compose --env-file .env.prod -f docker-compose.prod.yml logs --tail=100 backend
+```
+
+Просмотр логов frontend:
+
+```bash
+docker compose --env-file .env.prod -f docker-compose.prod.yml logs --tail=100 frontend
+```
+
+Просмотр логов базы:
+
+```bash
+docker compose --env-file .env.prod -f docker-compose.prod.yml logs --tail=100 db
+```
+
+## Остановка стенда
+
+Остановить контейнеры, сохранив данные PostgreSQL:
 
 ```bash
 docker compose --env-file .env.prod -f docker-compose.prod.yml down
 ```
 
-Остановить контейнеры и удалить данные базы тоже:
+Остановить контейнеры и удалить volume базы данных:
 
 ```bash
 docker compose --env-file .env.prod -f docker-compose.prod.yml down -v
 ```
 
-Полностью удалить проект с VPS:
+## Полное удаление стенда
+
+Если стенд больше не нужен:
 
 ```bash
+docker compose --env-file .env.prod -f docker-compose.prod.yml down -v
 cd /srv
 rm -rf /srv/hire-hub
 ```
 
-Последнюю команду используй только если действительно хочешь снести проектовые файлы с сервера.
+Эта операция удаляет контейнеры, volume базы данных и файлы проекта с VPS.
