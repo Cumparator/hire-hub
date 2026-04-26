@@ -1,6 +1,17 @@
 // frontend/src/api/client.js
 
-const API_BASE = import.meta.env.VITE_API_URL || '/api';
+const API_BASE = normalizeApiBase(import.meta.env.VITE_API_URL);
+
+function normalizeApiBase(rawBase) {
+    if (!rawBase) return '/api';
+
+    const trimmed = rawBase.replace(/\/+$/, '');
+    if (trimmed === '/api' || trimmed.endsWith('/api')) {
+        return trimmed;
+    }
+
+    return `${trimmed}/api`;
+}
 
 function generateUserId() {
     if (globalThis.crypto?.randomUUID) {

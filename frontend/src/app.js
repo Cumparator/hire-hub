@@ -15,6 +15,15 @@ const JOBS_PER_PAGE = 20;
 let searchParams = {};
 let filterParams = {};
 
+function buildRequestParams() {
+    return {
+        ...filterParams,
+        ...searchParams,
+        page: currentPage,
+        per_page: JOBS_PER_PAGE,
+    };
+}
+
 async function loadFavorites() {
     try {
         const data = await fetchFavorites();
@@ -25,7 +34,7 @@ async function loadFavorites() {
 }
 
 async function doSearch() {
-    const params = { ...filterParams, ...searchParams, page: currentPage, per_page: JOBS_PER_PAGE };
+    const params = buildRequestParams();
     const listEl = document.getElementById('jobs-list');
     try {
         const data = await fetchJobs(params);
@@ -60,7 +69,7 @@ function showRefreshingBanner(listEl, params) {
     // Повторный запрос через 5 секунд
     setTimeout(async () => {
         banner.remove();
-        const merged = { ...filterParams, ...searchParams };
+        const merged = buildRequestParams();
         // Проверяем что фильтры не изменились пока ждали
         const stillSame = JSON.stringify(merged) === JSON.stringify(params);
         if (stillSame) await doSearch();
