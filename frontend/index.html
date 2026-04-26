@@ -9,12 +9,17 @@
 </head>
 <body>
     <div id="app">
+        <!-- Sticky sidebar — появляется при скролле -->
+        <aside id="filters-sidebar" class="filters-sidebar"></aside>
+
         <main id="main-content">
             <div id="tabs-container">
                 <button id="tab-all" class="active">Все вакансии</button>
                 <button id="tab-fav">Избранное</button>
             </div>
             <div id="search-container"></div>
+            <!-- Inline-фильтры под строкой поиска -->
+            <div id="filters-inline"></div>
             <div id="jobs-list"></div>
         </main>
     </div>

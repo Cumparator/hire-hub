@@ -1,13 +1,16 @@
-// Точка входа фронтенда.
-// Инициализация компонентов: SearchBar, JobList.
-// Навешивание глобальных обработчиков событий.
+// frontend/src/app.js
 
 import { fetchJobs, addFavorite, removeFavorite, fetchFavorites } from './api/client.js';
 import { renderJobs } from './components/JobList.js';
 import { initSearchBar } from './components/SearchBar.js';
+import { initFilterPanel } from './components/FilterPanel.js';
 
 let currentJobs = [];
-let favoriteIds = new Set(); // TODO: Надо бы уйти от глобальных переменных, это надо делать через контекст или стор, но в целом так тоже ок
+let favoriteIds = new Set();
+
+// Текущие параметры от каждого источника — мержим перед запросом
+let searchParams = {};
+let filterParams = {};
 
 async function loadFavorites() {
     try {
@@ -18,16 +21,57 @@ async function loadFavorites() {
     }
 }
 
-// Принимает уже разобранный объект параметров от SearchBar → parseQuery → toApiParams
-async function handleSearch(params = {}) {
+async function doSearch() {
+    const params = { ...filterParams, ...searchParams };
+    const listEl = document.getElementById('jobs-list');
     try {
         const data = await fetchJobs(params);
         currentJobs = data.jobs;
         renderJobs(currentJobs, favoriteIds, handleToggleFavorite);
+
+        // Если бэкенд запустил фоновый парсинг — показываем баннер
+        if (data.refreshing) {
+            showRefreshingBanner(listEl, params);
+        }
     } catch (err) {
         console.error('Ошибка поиска:', err);
-        document.getElementById('jobs-list').innerHTML = '<div class="error">Ошибка: ' + err.message + '<br><small>' + (err.stack || '') + '</small></div>';
+        listEl.innerHTML = '<div class="error">Ошибка: ' + err.message + '</div>';
     }
+}
+
+// Показывает баннер "обновляем" и через N секунд перезапрашивает список
+function showRefreshingBanner(listEl, params) {
+    // Убираем старый баннер если есть
+    listEl.querySelector('.refreshing-banner')?.remove();
+
+    const banner = document.createElement('div');
+    banner.className = 'refreshing-banner';
+    banner.innerHTML = `
+        <span class="refreshing-banner__dot"></span>
+        Ищем свежие вакансии по фильтру, обновим через несколько секунд...
+    `;
+    listEl.prepend(banner);
+
+    // Повторный запрос через 5 секунд
+    setTimeout(async () => {
+        banner.remove();
+        const merged = { ...filterParams, ...searchParams };
+        // Проверяем что фильтры не изменились пока ждали
+        const stillSame = JSON.stringify(merged) === JSON.stringify(params);
+        if (stillSame) await doSearch();
+    }, 5000);
+}
+
+// Вызывается из SearchBar (уже разобранные params)
+function handleSearch(params) {
+    searchParams = params;
+    doSearch();
+}
+
+// Вызывается из FilterPanel
+function handleFilter(params) {
+    filterParams = params;
+    doSearch();
 }
 
 async function handleToggleFavorite(jobId, isAdding, btnElement) {
@@ -49,18 +93,17 @@ async function handleToggleFavorite(jobId, isAdding, btnElement) {
     }
 }
 
-// Инициализация при загрузке
 document.addEventListener('DOMContentLoaded', async () => {
     initSearchBar(handleSearch);
+    initFilterPanel(handleFilter);
     initTabs();
-    
-    await loadFavorites(); // Сначала грузим id избранных
-    await handleSearch(''); // Потом грузим дефолтный список вакансий
+
+    await loadFavorites();
+    await doSearch();
 });
 
-let currentTab = 'all'; // 'all' | 'favorites'
+let currentTab = 'all';
 
-// Функция инициализации табов
 function initTabs() {
     const tabAll = document.getElementById('tab-all');
     const tabFav = document.getElementById('tab-fav');
@@ -69,7 +112,8 @@ function initTabs() {
         currentTab = 'all';
         tabAll.classList.add('active');
         tabFav.classList.remove('active');
-        document.getElementById('search-container').style.display = 'block'; // Показываем поиск
+        document.getElementById('search-container').classList.remove('hidden');
+        document.getElementById('filters-inline').classList.remove('hidden');
         renderJobs(currentJobs, favoriteIds, handleToggleFavorite);
     });
 
@@ -77,10 +121,9 @@ function initTabs() {
         currentTab = 'favorites';
         tabFav.classList.add('active');
         tabAll.classList.remove('active');
-        document.getElementById('search-container').style.display = 'none'; // TODO: из js лучше не управлять стилями, а добавлять/удалять классы, и уже в CSS прописать, что .hidden { display: none }, а тут просто toggleClass('hidden')
-        
+        document.getElementById('search-container').classList.add('hidden');
+        document.getElementById('filters-inline').classList.add('hidden');
         try {
-            // Запрашиваем актуальное избранное (наши моки отработают)
             const data = await fetchFavorites();
             renderJobs(data.jobs, favoriteIds, handleToggleFavorite);
         } catch (err) {
