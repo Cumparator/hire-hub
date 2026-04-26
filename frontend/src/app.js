@@ -7,6 +7,9 @@ import { initFilterPanel } from './components/FilterPanel.js';
 
 let currentJobs = [];
 let favoriteIds = new Set();
+let currentPage = 1;
+let currentPagination = null;
+const JOBS_PER_PAGE = 20;
 
 // Текущие параметры от каждого источника — мержим перед запросом
 let searchParams = {};
@@ -22,12 +25,14 @@ async function loadFavorites() {
 }
 
 async function doSearch() {
-    const params = { ...filterParams, ...searchParams };
+    const params = { ...filterParams, ...searchParams, page: currentPage, per_page: JOBS_PER_PAGE };
     const listEl = document.getElementById('jobs-list');
     try {
         const data = await fetchJobs(params);
         currentJobs = data.jobs;
+        currentPagination = data.pagination ?? null;
         renderJobs(currentJobs, favoriteIds, handleToggleFavorite);
+        renderServerPagination();
 
         // Если бэкенд запустил фоновый парсинг — показываем баннер
         if (data.refreshing) {
@@ -65,12 +70,14 @@ function showRefreshingBanner(listEl, params) {
 // Вызывается из SearchBar (уже разобранные params)
 function handleSearch(params) {
     searchParams = params;
+    currentPage = 1;
     doSearch();
 }
 
 // Вызывается из FilterPanel
 function handleFilter(params) {
     filterParams = params;
+    currentPage = 1;
     doSearch();
 }
 
@@ -115,6 +122,7 @@ function initTabs() {
         document.getElementById('search-container').classList.remove('hidden');
         document.getElementById('filters-inline').classList.remove('hidden');
         renderJobs(currentJobs, favoriteIds, handleToggleFavorite);
+        renderServerPagination();
     });
 
     tabFav.addEventListener('click', async () => {
@@ -125,9 +133,98 @@ function initTabs() {
         document.getElementById('filters-inline').classList.add('hidden');
         try {
             const data = await fetchFavorites();
-            renderJobs(data.jobs, favoriteIds, handleToggleFavorite);
+            renderFavoritePage(data.jobs);
         } catch (err) {
             console.error('Ошибка загрузки избранного', err);
         }
     });
+}
+
+function renderServerPagination() {
+    renderPagination(currentPagination, (page) => {
+        currentPage = page;
+        doSearch();
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+    });
+}
+
+function renderFavoritePage(favoriteJobs) {
+    const total = favoriteJobs.length;
+    const totalPages = Math.ceil(total / JOBS_PER_PAGE);
+    const safePage = Math.min(currentPage, Math.max(totalPages, 1));
+    const start = (safePage - 1) * JOBS_PER_PAGE;
+    const jobsOnPage = favoriteJobs.slice(start, start + JOBS_PER_PAGE);
+
+    currentPage = safePage;
+    renderJobs(jobsOnPage, favoriteIds, handleToggleFavorite);
+    renderPagination(
+        {
+            page: safePage,
+            perPage: JOBS_PER_PAGE,
+            total,
+            totalPages,
+        },
+        async (page) => {
+            currentPage = page;
+            const data = await fetchFavorites();
+            renderFavoritePage(data.jobs);
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+        }
+    );
+}
+
+function renderPagination(pagination, onPageChange) {
+    const container = document.getElementById('pagination');
+    if (!container) return;
+
+    if (!pagination || pagination.totalPages <= 1) {
+        container.innerHTML = '';
+        return;
+    }
+
+    const { page, perPage, total, totalPages } = pagination;
+    const start = total === 0 ? 0 : (page - 1) * perPage + 1;
+    const end = Math.min(page * perPage, total);
+    const pages = buildPageItems(page, totalPages);
+
+    container.innerHTML = `
+        <div class="pagination">
+            <div class="pagination__summary">Показано ${start}-${end} из ${total}</div>
+            <div class="pagination__controls">
+                <button class="pagination__nav" data-page="${page - 1}" ${page <= 1 ? 'disabled' : ''}>Назад</button>
+                ${pages.map((item) => item === '...'
+                    ? '<span class="pagination__ellipsis">...</span>'
+                    : `<button class="pagination__page ${item === page ? 'is-active' : ''}" data-page="${item}">${item}</button>`
+                ).join('')}
+                <button class="pagination__nav" data-page="${page + 1}" ${page >= totalPages ? 'disabled' : ''}>Дальше</button>
+            </div>
+        </div>
+    `;
+
+    container.querySelectorAll('button[data-page]').forEach((button) => {
+        button.addEventListener('click', () => {
+            const nextPage = Number(button.dataset.page);
+            if (!nextPage || nextPage === page || nextPage < 1 || nextPage > totalPages) return;
+            onPageChange(nextPage);
+        });
+    });
+}
+
+function buildPageItems(current, totalPages) {
+    if (totalPages <= 7) {
+        return Array.from({ length: totalPages }, (_, index) => index + 1);
+    }
+
+    const items = [1];
+    const start = Math.max(2, current - 1);
+    const end = Math.min(totalPages - 1, current + 1);
+
+    if (start > 2) items.push('...');
+    for (let page = start; page <= end; page += 1) {
+        items.push(page);
+    }
+    if (end < totalPages - 1) items.push('...');
+
+    items.push(totalPages);
+    return items;
 }
