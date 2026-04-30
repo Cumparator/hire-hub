@@ -45,20 +45,24 @@ async function handleAuthSuccess(user) {
   renderJobList(currentJobs); // перерендерить карточки
 }
 // ── Меню пользователя ─────────────────────────────────────────────────────────
-
 function renderUserMenu() {
   let menuEl = document.getElementById('user-menu');
+  const tabsContainer = document.getElementById('tabs-container');
+
   if (!menuEl) {
     menuEl = document.createElement('div');
     menuEl.id = 'user-menu';
     menuEl.className = 'user-menu';
-    document.getElementById('tabs-container')?.after(menuEl);
+    tabsContainer?.appendChild(menuEl);
   }
 
   if (currentUser) {
     menuEl.innerHTML = `
-      <span class="user-menu__name">${currentUser.login}</span>
-      <button class="user-menu__logout" id="btn-logout">Выйти</button>
+      <div class="user-menu__content">
+        <span class="user-menu__name">${currentUser.login}</span>
+        <span class="user-menu__divider">|</span>
+        <button class="user-menu__logout" id="btn-logout">Выйти</button>
+      </div>
     `;
     document.getElementById('btn-logout')?.addEventListener('click', async () => {
       await authLogout();
@@ -66,7 +70,7 @@ function renderUserMenu() {
       favoriteIds = new Set();
       renderUserMenu();
       renderJobList(currentJobs);
-      doSearch();
+      if (currentTab === 'favorites') document.getElementById('tab-all')?.click();
     });
   } else {
     menuEl.innerHTML = `
@@ -75,7 +79,6 @@ function renderUserMenu() {
     document.getElementById('btn-login')?.addEventListener('click', () => openAuthModal());
   }
 }
-
 // ── Вспомогательные ───────────────────────────────────────────────────────────
 
 function buildRequestParams() {
@@ -311,7 +314,6 @@ function initLeaveTracking() {
 // ── Старт ─────────────────────────────────────────────────────────────────────
 
 document.addEventListener('DOMContentLoaded', async () => {
-  // AuthModal создаём сразу — он вставляет себя в body
   authModal = new AuthModal({ onSuccess: handleAuthSuccess });
 
   initSearchBar(handleSearch);

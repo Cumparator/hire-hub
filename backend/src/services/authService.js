@@ -1,4 +1,7 @@
 // backend/src/services/authService.js
+// Сервис аутентификации — регистрация, вход, управление сессиями.
+// Все ошибки бросаются как объекты { status, code, message }, которые
+// routes.js превращает в стандартный JSON-ответ.
 
 import { query } from '../db/connection.js';
 import {
@@ -8,142 +11,155 @@ import {
   sessionExpiresAt,
 } from './authUtils.js';
 
-// ── Регистрация ──────────────────────────────────────────────────────────────
+// ── Константы валидации (зеркало фронта) ─────────────────────────────────
+const MIN_LOGIN_LEN    = 3;
+const MAX_LOGIN_LEN    = 32;
+const MIN_PASSWORD_LEN = 6;
+const MAX_PASSWORD_LEN = 72;
+const LOGIN_RE         = /^[a-zA-Z0-9_\-.]+$/;
 
-export async function register(login, password) {
-  if (!login || login.trim().length < 3) {
-    throw { code: 'INVALID_LOGIN', message: 'Логин должен быть не короче 3 символов' };
+// ── Вспомогательный класс ошибки ─────────────────────────────────────────
+
+export class AuthError extends Error {
+  /**
+   * @param {number} status  HTTP-статус
+   * @param {string} code    Машинный код (используется фронтом)
+   * @param {string} message Текст для пользователя
+   */
+  constructor(status, code, message) {
+    super(message);
+    this.status  = status;
+    this.code    = code;
   }
-  if (!password || password.length < 6) {
-    throw { code: 'INVALID_PASSWORD', message: 'Пароль должен быть не короче 6 символов' };
+}
+
+// ── Серверная валидация полей ─────────────────────────────────────────────
+
+function validateCredentials(login, password) {
+  if (!login || typeof login !== 'string') {
+    throw new AuthError(400, 'VALIDATION_ERROR', 'Введите логин');
+  }
+  if (!password || typeof password !== 'string') {
+    throw new AuthError(400, 'VALIDATION_ERROR', 'Введите пароль');
   }
 
-  const passwordHash = hashPassword(password);
+  const l = login.trim();
 
-  let user;
+  if (l.length < MIN_LOGIN_LEN) {
+    throw new AuthError(400, 'VALIDATION_ERROR',
+      `Логин — минимум ${MIN_LOGIN_LEN} символа`);
+  }
+  if (l.length > MAX_LOGIN_LEN) {
+    throw new AuthError(400, 'VALIDATION_ERROR',
+      `Логин — не более ${MAX_LOGIN_LEN} символов`);
+  }
+  if (!LOGIN_RE.test(l)) {
+    throw new AuthError(400, 'VALIDATION_ERROR',
+      'Логин: только латиница, цифры, _ - .');
+  }
+  if (password.length < MIN_PASSWORD_LEN) {
+    throw new AuthError(400, 'VALIDATION_ERROR',
+      `Пароль — минимум ${MIN_PASSWORD_LEN} символов`);
+  }
+  if (password.length > MAX_PASSWORD_LEN) {
+    throw new AuthError(400, 'VALIDATION_ERROR',
+      `Пароль — не более ${MAX_PASSWORD_LEN} символов`);
+  }
+
+  return l;
+}
+
+// ── Регистрация ───────────────────────────────────────────────────────────
+
+export async function register(rawLogin, password) {
+  const login = validateCredentials(rawLogin, password);
+  const hash  = hashPassword(password);
+
+  let result;
   try {
-    const result = await query(
-      `INSERT INTO users (login, password_hash) VALUES ($1, $2) RETURNING id, login, created_at`,
-      [login.trim(), passwordHash]
+    result = await query(
+      `INSERT INTO users (login, password_hash)
+       VALUES ($1, $2)
+       RETURNING id, login, created_at`,
+      [login, hash]
     );
-    user = result.rows[0];
   } catch (err) {
     if (err.code === '23505') {
-      throw { code: 'LOGIN_TAKEN', message: 'Этот логин уже занят' };
+      throw new AuthError(409, 'LOGIN_TAKEN', 'Этот логин уже занят');
     }
-    throw err;
+    throw err; 
   }
 
-  const token = await createSession(user.id);
-  return { user: publicUser(user), token };
+  const user    = result.rows[0];
+  const token   = generateSessionToken();
+  const expires = sessionExpiresAt();
+
+  await query(
+    `INSERT INTO sessions (token, user_id, expires_at) VALUES ($1, $2, $3)`,
+    [token, user.id, expires]
+  );
+
+  return { user: { id: user.id, login: user.login }, token, expires };
 }
 
-// ── Вход ─────────────────────────────────────────────────────────────────────
+// ── Вход ──────────────────────────────────────────────────────────────────
 
-export async function login(login, password) {
+export async function login(rawLogin, password) {
+  const login = validateCredentials(rawLogin, password);
+
   const result = await query(
-    `SELECT id, login, password_hash, created_at FROM users WHERE login = $1`,
-    [login?.trim()]
+    `SELECT id, login, password_hash FROM users WHERE login = $1`,
+    [login]
   );
+
+  if (result.rows.length === 0) {
+    throw new AuthError(401, 'LOGIN_NOT_FOUND', 'Пользователь не найден');
+  }
+
   const user = result.rows[0];
 
-  if (!user || !verifyPassword(password, user.password_hash)) {
-    throw { code: 'INVALID_CREDENTIALS', message: 'Неверный логин или пароль' };
+  if (!verifyPassword(password, user.password_hash)) {
+    throw new AuthError(401, 'INVALID_PASSWORD', 'Неверный пароль');
   }
 
-  const token = await createSession(user.id);
-  return { user: publicUser(user), token };
+  await query(
+    `DELETE FROM sessions WHERE user_id = $1 AND expires_at < NOW()`,
+    [user.id]
+  ).catch(() => {});
+
+  const token   = generateSessionToken();
+  const expires = sessionExpiresAt();
+
+  await query(
+    `INSERT INTO sessions (token, user_id, expires_at) VALUES ($1, $2, $3)`,
+    [token, user.id, expires]
+  );
+
+  return { user: { id: user.id, login: user.login }, token, expires };
 }
 
-// ── Выход ─────────────────────────────────────────────────────────────────────
+// ── Выход ─────────────────────────────────────────────────────────────────
 
 export async function logout(token) {
+  if (!token) return;
   await query(`DELETE FROM sessions WHERE token = $1`, [token]);
 }
 
-// ── Текущий пользователь по токену ───────────────────────────────────────────
+// ── Проверка сессии ───────────────────────────────────────────────────────
 
-export async function getUserByToken(token) {
+export async function getSession(token) {
   if (!token) return null;
 
   const result = await query(
-    `SELECT u.id, u.login, u.favorite_job_ids, u.created_at
+    `SELECT s.token, s.expires_at, u.id, u.login
      FROM sessions s
      JOIN users u ON u.id = s.user_id
      WHERE s.token = $1 AND s.expires_at > NOW()`,
     [token]
   );
 
-  return result.rows[0] ? publicUser(result.rows[0]) : null;
-}
+  if (result.rows.length === 0) return null;
 
-// ── Избранное ─────────────────────────────────────────────────────────────────
-
-export async function getFavoriteJobIds(userId) {
-  const result = await query(
-    `SELECT favorite_job_ids FROM users WHERE id = $1`,
-    [userId]
-  );
-  return result.rows[0]?.favorite_job_ids ?? [];
-}
-
-export async function addFavoriteForUser(userId, jobId) {
-  await query(
-    `UPDATE users
-     SET favorite_job_ids = array_append(favorite_job_ids, $2::uuid)
-     WHERE id = $1 AND NOT ($2::uuid = ANY(favorite_job_ids))`,
-    [userId, jobId]
-  );
-}
-
-export async function removeFavoriteForUser(userId, jobId) {
-  await query(
-    `UPDATE users
-     SET favorite_job_ids = array_remove(favorite_job_ids, $2::uuid)
-     WHERE id = $1`,
-    [userId, jobId]
-  );
-}
-
-// ── Аналитика ─────────────────────────────────────────────────────────────────
-
-export async function trackEvent(userId, eventType, jobId = null) {
-  await query(
-    `INSERT INTO user_analytics (user_id, event_type, job_id) VALUES ($1, $2, $3)`,
-    [userId, eventType, jobId]
-  );
-}
-
-export async function trackJobClick(userId, jobId) {
-  await query(
-    `INSERT INTO job_click_stats (user_id, job_id, click_count, last_click_at)
-     VALUES ($1, $2, 1, NOW())
-     ON CONFLICT (user_id, job_id)
-     DO UPDATE SET
-       click_count   = job_click_stats.click_count + 1,
-       last_click_at = NOW()`,
-    [userId, jobId]
-  );
-  await trackEvent(userId, 'job_redirect', jobId);
-}
-
-// ── Вспомогательные ───────────────────────────────────────────────────────────
-
-async function createSession(userId) {
-  const token     = generateSessionToken();
-  const expiresAt = sessionExpiresAt();
-  await query(
-    `INSERT INTO sessions (token, user_id, expires_at) VALUES ($1, $2, $3)`,
-    [token, userId, expiresAt]
-  );
-  return token;
-}
-
-function publicUser(row) {
-  return {
-    id:             row.id,
-    login:          row.login,
-    favoriteJobIds: row.favorite_job_ids ?? [],
-    createdAt:      row.created_at,
-  };
+  const row = result.rows[0];
+  return { user: { id: row.id, login: row.login }, expiresAt: row.expires_at };
 }
