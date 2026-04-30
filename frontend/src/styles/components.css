@@ -500,3 +500,31 @@
     padding: 40px;
     color: var(--text-muted);
 }
+
+.job-details__body h1, 
+.job-details__body h2, 
+.job-details__body h3, 
+.job-details__body h4 {
+    color: var(--text-main);
+    margin-top: 24px;
+    margin-bottom: 12px;
+}
+
+.job-details__body ul, 
+.job-details__body ol {
+    padding-left: 20px;
+    margin-bottom: 16px;
+}
+
+.job-details__body li {
+    margin-bottom: 8px;
+}
+
+.job-details__body p {
+    margin-bottom: 16px;
+}
+
+.job-details__body strong, 
+.job-details__body b {
+    color: var(--accent); /* Подсвечиваем ключевые слова акцентным цветом */
+}

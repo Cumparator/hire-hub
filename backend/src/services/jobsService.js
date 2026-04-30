@@ -123,7 +123,33 @@ export async function getJobs(params = {}) {
 
 export async function getJobById(id) {
   const result = await query(`SELECT * FROM jobs WHERE id = $1`, [id]);
-  return result.rows[0] ? normalizeRow(result.rows[0]) : null;
+  if (!result.rows[0]) return null;
+
+  let jobRow = result.rows[0];
+
+  // Магия Lazy Loading: если это вакансия с HH и описание короткое/без тегов, качаем фулл!
+  if (jobRow.source === 'hh' && (!jobRow.description || !jobRow.description.includes('<'))) {
+      try {
+          const resp = await fetch(`https://api.hh.ru/vacancies/${jobRow.external_id}`, {
+              headers: {
+                  'User-Agent': process.env.HH_APP_NAME || 'HireHub/1.0 (contact@hirehub.dev)'
+              }
+          });
+          
+          if (resp.ok) {
+              const data = await resp.json();
+              if (data.description) {
+                  // Кэшируем полное описание в нашу БД, чтобы второй раз не качать
+                  await query(`UPDATE jobs SET description = $1 WHERE id = $2`, [data.description, id]);
+                  jobRow.description = data.description;
+              }
+          }
+      } catch (err) {
+          console.error(`[jobsService] Ошибка загрузки фулл вакансии HH:`, err.message);
+      }
+  }
+
+  return normalizeRow(jobRow);
 }
 
 export async function countJobsByStack(stack, source = 'hh') {

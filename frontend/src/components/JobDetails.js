@@ -19,10 +19,17 @@ export async function renderJobDetails(jobId, favoriteIds, onToggleFavorite) {
         else if (job.salaryMin) salaryText = `от ${job.salaryMin} ${job.salaryCurrency}`;
         else if (job.salaryMax) salaryText = `до ${job.salaryMax} ${job.salaryCurrency}`;
 
-        // Защита от XSS и переносы строк для описания
-        const safeDescription = job.description 
-            ? job.description.replace(/</g, '&lt;').replace(/\n/g, '<br>')
-            : 'Описание отсутствует.';
+        // --- ИЗМЕНИЛИ ЛОГИКУ ОПИСАНИЯ ---
+        let finalDescription = 'Описание отсутствует.';
+        if (job.description) {
+            // Если текст похож на HTML от ХХ (есть теги), вставляем как разметку
+            if (job.description.includes('<') && job.description.includes('>')) {
+                finalDescription = job.description;
+            } else {
+                // Иначе экранируем и меняем переносы строк на <br> (для ТГ-каналов)
+                finalDescription = job.description.replace(/</g, '&lt;').replace(/\n/g, '<br>');
+            }
+        }
 
         container.innerHTML = `
             <div class="job-details">
@@ -49,12 +56,12 @@ export async function renderJobDetails(jobId, favoriteIds, onToggleFavorite) {
                 ${stackHtml ? `<div class="job-details__stack">${stackHtml}</div>` : ''}
                 
                 <div class="job-details__body">
-                    ${safeDescription}
+                    ${finalDescription}
                 </div>
             </div>
         `;
 
-        // Обработчик для кнопки "Назад" (просто очищаем хэш)
+        // Обработчик для кнопки "Назад"
         document.getElementById('back-btn').addEventListener('click', () => {
             window.location.hash = '';
         });
