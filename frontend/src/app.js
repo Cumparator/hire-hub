@@ -273,7 +273,7 @@ async function handleRoute() {
         if(sidebar) sidebar.classList.add('hidden');
         detailsView.classList.remove('hidden');
         
-        await renderJobDetails(jobId, window.favoriteIds || new Set(), toggleFavoriteHandler);
+        await renderJobDetails(jobId, favoriteIds, handleToggleFavorite);
     } else {
         detailsView.classList.add('hidden');
         detailsView.innerHTML = '';
