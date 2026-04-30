@@ -78,3 +78,12 @@ export async function removeFavorite(jobId) {
   });
   return handleResponse(resp);
 }
+
+/**
+ * @param {string} id
+ * @returns {Promise<Job>}
+ */
+export async function fetchJobById(id) {
+  const resp = await fetch(`${API_BASE}/api/jobs/${id}`);
+  return handleResponse(resp);
+}

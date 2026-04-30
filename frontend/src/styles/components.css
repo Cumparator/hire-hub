@@ -1,2 +1,102 @@
-/* Стили для компонентов по БЭМ. 
-   Например: .job-card {}, .job-card__title {}, .search-bar__input {} */
+
+.job-card {
+    border: 1px solid #ddd;
+    border-radius: 8px;
+    padding: 16px;
+    margin-bottom: 16px;
+    cursor: pointer;
+    transition: box-shadow 0.2s;
+}
+
+.job-card:hover {
+    box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+}
+
+.job-card__header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+}
+
+.job-card__title {
+    margin: 0 0 8px 0;
+    font-size: 1.2rem;
+    color: #333;
+}
+
+.job-card__favorite-btn {
+    background: none;
+    border: none;
+    cursor: pointer;
+    font-size: 1.2rem;
+}
+
+.job-card__meta {
+    color: #666;
+    font-size: 0.9rem;
+    margin-bottom: 8px;
+}
+
+.job-card__salary {
+    font-weight: bold;
+    margin-bottom: 12px;
+}
+
+.job-card__stack {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+
+.job-card__tag {
+    background: #f0f0f0;
+    padding: 4px 8px;
+    border-radius: 4px;
+    font-size: 0.8rem;
+}
+
+/* --- Job Detail Page --- */
+.job-detail {
+    max-width: 800px;
+    margin: 0 auto;
+    padding: 20px;
+}
+
+.job-detail__back {
+    background: none;
+    border: none;
+    color: #0066cc;
+    cursor: pointer;
+    font-size: 1rem;
+    margin-bottom: 20px;
+    padding: 0;
+}
+
+.job-detail__back:hover {
+    text-decoration: underline;
+}
+
+.job-detail__header h2 {
+    margin-top: 0;
+}
+
+.job-detail__meta {
+    display: flex;
+    gap: 20px;
+    margin-bottom: 30px;
+    color: #555;
+}
+
+.job-detail__body {
+    line-height: 1.6;
+    margin-bottom: 40px;
+}
+
+/* Стили для HTML, который приходит от HH.ru */
+.job-detail__body ul {
+    padding-left: 20px;
+}
+
+.job-detail__body strong {
+    color: #222;
+}

@@ -85,9 +85,26 @@ export async function getJobs(params = {}) {
  * Получить вакансию по ID
  */
 export async function getJobById(id) {
-  const result = await query(
-    `SELECT * FROM jobs WHERE id = $1`,
-    [id]
-  );
-  return result.rows[0] || null;
+  const result = await query(`SELECT * FROM jobs WHERE id = $1`, [id]);
+  let job = result.rows[0];
+
+  if (!job) return null;
+
+  // Ленивая загрузка описания для HH
+  if (job.source === 'hh' && !job.description) {
+    try {
+      const resp = await fetch(`https://api.hh.ru/vacancies/${job.external_id}`);
+      if (resp.ok) {
+        const hhData = await resp.json();
+        job.description = hhData.description; // Готовый HTML от HH
+        
+        // Сохраняем в БД, чтобы в следующий раз отдавать моментально
+        await query(`UPDATE jobs SET description = $1 WHERE id = $2`, [job.description, id]);
+      }
+    } catch (err) {
+      console.error(`Failed to fetch description for HH job ${job.external_id}`, err);
+    }
+  }
+
+  return job;
 }
