@@ -94,10 +94,10 @@ export function registerRoutes(app) {
       return res.status(400).json({ error: 'Укажите jobId', code: 'MISSING_JOB_ID' });
     }
     try {
-      const fav = await addFavorite(req.user.id, jobId);
-      res.status(201).json({ favoriteId: fav.id });
+      const favoriteId = await addFavorite(req.user.id, jobId);
+      res.status(201).json({ favoriteId });
     } catch (err) {
-      if (err.code === '23505') {
+      if (err.code === '23505' || err.code === 'ALREADY_FAVORITED') {
         return res.status(409).json({ error: 'Уже в избранном', code: 'ALREADY_FAVORITE' });
       }
       if (err.code === '23503') {

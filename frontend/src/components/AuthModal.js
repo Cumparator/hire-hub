@@ -23,10 +23,11 @@ export class AuthModal {
 
   // ── Публичный API ──────────────────────────────────────────────────────────
 
-  open(pendingJobUrl = null) {
+  open(pendingJobUrl = null, hintText = '') {
     this._pendingJobUrl = pendingJobUrl;
     this._el.classList.add('auth-modal--visible');
     this._resetForm();
+    this._setHint(hintText);
     this._el.querySelector('.auth-modal__input--login').focus();
   }
 
@@ -48,7 +49,7 @@ export class AuthModal {
         </div>
 
         <div class="auth-modal__body">
-          <p class="auth-modal__hint" id="auth-hint">Войдите, чтобы перейти к вакансии</p>
+          <p class="auth-modal__hint" id="auth-hint" hidden></p>
 
           <input
             class="auth-modal__input auth-modal__input--login"
@@ -111,6 +112,12 @@ export class AuthModal {
     this._switchTab('login');
     this._el.querySelector('.auth-modal__input--login').value    = '';
     this._el.querySelector('.auth-modal__input--password').value = '';
+  }
+
+  _setHint(text) {
+    const hintEl = this._el.querySelector('#auth-hint');
+    hintEl.textContent = text;
+    hintEl.hidden = !text;
   }
 
   // ── Управление ошибками ───────────────────────────────────────────────────

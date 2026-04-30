@@ -33,8 +33,11 @@ const REFRESH_POLL_INTERVAL = 5000;
 
 let authModal;
 
-function openAuthModal(pendingJobUrl = null) {
-  authModal.open(pendingJobUrl);
+function openAuthModal(pendingJobUrl = null, hintText = '') {
+  authModal.open(
+    pendingJobUrl,
+    hintText || (pendingJobUrl ? 'Войдите, чтобы перейти к вакансии' : '')
+  );
 }
 
 async function handleAuthSuccess(user) {
@@ -86,10 +89,17 @@ function buildRequestParams() {
 }
 
 async function loadFavorites() {
+  if (!currentUser) {
+    favoriteIds = new Set();
+    return;
+  }
+
   try {
     const data = await fetchFavorites();
     favoriteIds = new Set(data.jobs.map(j => j.id));
-  } catch { /* anon пользователь */ }
+  } catch {
+    favoriteIds = new Set();
+  }
 }
 
 // ── Поиск ─────────────────────────────────────────────────────────────────────
@@ -166,6 +176,11 @@ function handleFilter(params) {
 }
 
 async function handleToggleFavorite(jobId, isAdding, btnElement) {
+  if (!currentUser) {
+    openAuthModal(null, 'Войдите, чтобы добавить в избранное');
+    return;
+  }
+
   try {
     if (isAdding) {
       await addFavorite(jobId);
@@ -205,15 +220,26 @@ function initTabs() {
   tabFav.addEventListener('click', async () => {
     stopRefreshPolling();
     currentTab = 'favorites';
+    currentPage = 1;
     tabFav.classList.add('active');
     tabAll.classList.remove('active');
     document.getElementById('search-container').classList.add('hidden');
     document.getElementById('filters-inline').classList.add('hidden');
+
+    if (!currentUser) {
+      favoriteIds = new Set();
+      renderFavoritePage([]);
+      openAuthModal();
+      return;
+    }
+
     try {
       const data = await fetchFavorites();
+      favoriteIds = new Set(data.jobs.map(j => j.id));
       renderFavoritePage(data.jobs);
     } catch (err) {
       console.error('Ошибка загрузки избранного', err);
+      renderFavoritePage([]);
     }
   });
 }

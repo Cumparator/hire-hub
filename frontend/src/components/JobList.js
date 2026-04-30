@@ -4,7 +4,7 @@
 // frontend/src/components/JobList.js
 import { createJobCard } from './JobCard.js';
 
-export function renderJobs(jobsData, favoriteIds, onToggleFavorite) {
+export function renderJobs(jobsData, favoriteIds, onToggleFavorite, options = {}) {
     const container = document.getElementById('jobs-list');
     if (!container) return;
 
@@ -19,7 +19,7 @@ export function renderJobs(jobsData, favoriteIds, onToggleFavorite) {
     
     jobsData.forEach(job => {
         const isFav = favoriteIds.has(job.id);
-        const cardNode = createJobCard(job, isFav, onToggleFavorite);
+        const cardNode = createJobCard(job, isFav, onToggleFavorite, options);
         fragment.appendChild(cardNode);
     });
 
