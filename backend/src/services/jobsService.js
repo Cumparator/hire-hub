@@ -127,25 +127,29 @@ export async function getJobById(id) {
 
   let jobRow = result.rows[0];
 
-  // Магия Lazy Loading: если это вакансия с HH и описание короткое/без тегов, качаем фулл!
   if (jobRow.source === 'hh' && (!jobRow.description || !jobRow.description.includes('<'))) {
       try {
-          const resp = await fetch(`https://api.hh.ru/vacancies/${jobRow.external_id}`, {
-              headers: {
-                  'User-Agent': process.env.HH_APP_NAME || 'HireHub/1.0 (contact@hirehub.dev)'
-              }
-          });
+          const headers = {
+              'User-Agent': process.env.HH_APP_NAME || 'HireHub/1.0 (contact@hirehub.dev)'
+          };
+          
+          if (process.env.HH_TOKEN) {
+              headers['Authorization'] = `Bearer ${process.env.HH_TOKEN}`;
+          }
+
+          const resp = await fetch(`https://api.hh.ru/vacancies/${jobRow.external_id}`, { headers });
           
           if (resp.ok) {
               const data = await resp.json();
               if (data.description) {
-                  // Кэшируем полное описание в нашу БД, чтобы второй раз не качать
                   await query(`UPDATE jobs SET description = $1 WHERE id = $2`, [data.description, id]);
                   jobRow.description = data.description;
               }
+          } else {
+              console.error(`[jobsService] ХХ.ру послал нас! Статус: ${resp.status} ${resp.statusText}`);
           }
       } catch (err) {
-          console.error(`[jobsService] Ошибка загрузки фулл вакансии HH:`, err.message);
+          console.error(`[jobsService] Ошибка сети при загрузке HH:`, err.message);
       }
   }
 
