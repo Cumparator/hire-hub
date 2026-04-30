@@ -24,7 +24,8 @@ export function createJobCard(job, isFavorite = false, onToggleFavorite) {
     card.innerHTML = `
         <div class="job-card__header">
             <h3 class="job-card__title">
-                <a href="${job.url}" target="_blank" rel="noopener noreferrer">${job.title}</a>
+                <!-- Изменена ссылка: теперь она ведет на внутренний роут -->
+                <a href="#job/${job.id}">${job.title}</a>
             </h3>
             <button class="job-card__fav-btn ${isFavorite ? 'active' : ''}">
                 ${isFavorite ? '★ В избранном' : '☆ Сохранить'}

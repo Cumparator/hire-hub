@@ -4,6 +4,7 @@ import { fetchJobs, addFavorite, removeFavorite, fetchFavorites } from './api/cl
 import { renderJobs } from './components/JobList.js';
 import { initSearchBar } from './components/SearchBar.js';
 import { initFilterPanel } from './components/FilterPanel.js';
+import { renderJobDetails } from './components/JobDetails.js';
 
 let currentJobs = [];
 let favoriteIds = new Set();
@@ -258,3 +259,29 @@ function buildPageItems(current, totalPages) {
     items.push(totalPages);
     return items;
 }
+
+async function handleRoute() {
+    const hash = window.location.hash;
+    const listView = document.getElementById('list-view');
+    const detailsView = document.getElementById('details-view');
+    const sidebar = document.getElementById('filters-sidebar');
+
+    if (hash.startsWith('#job/')) {
+        const jobId = hash.replace('#job/', '');
+        
+        listView.classList.add('hidden');
+        if(sidebar) sidebar.classList.add('hidden');
+        detailsView.classList.remove('hidden');
+        
+        await renderJobDetails(jobId, window.favoriteIds || new Set(), toggleFavoriteHandler);
+    } else {
+        detailsView.classList.add('hidden');
+        detailsView.innerHTML = '';
+        listView.classList.remove('hidden');
+        if(sidebar) sidebar.classList.remove('hidden');
+    }
+}
+
+window.addEventListener('hashchange', handleRoute);
+
+handleRoute();

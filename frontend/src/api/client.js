@@ -92,3 +92,7 @@ export async function addFavorite(jobId) {
 export async function removeFavorite(jobId) {
     return apiFetch(`/favorites/${jobId}`, { method: 'DELETE' });
 }
+
+export async function fetchJobById(id) {
+    return apiFetch(`/jobs/${id}`);
+}
