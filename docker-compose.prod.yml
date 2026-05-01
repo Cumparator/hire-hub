@@ -18,6 +18,7 @@ services:
       PORT: 4000
       CORS_ORIGIN: ${PUBLIC_ORIGIN:-http://localhost}
       HH_TOKEN: ${HH_TOKEN:?set HH_TOKEN}
+      SUPERJOB_TOKEN: ${SUPERJOB_TOKEN}
       HH_APP_NAME: ${HH_APP_NAME:-HireHub/1.0 (contact@hirehub.dev)}
       TG_CHANNELS: ${TG_CHANNELS:-}
     depends_on:

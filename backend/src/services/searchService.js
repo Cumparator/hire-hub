@@ -1,5 +1,6 @@
 import { getJobs } from './jobsService.js';
 import { HhParser } from '../parsers/hhParser.js';
+import { SjParser } from '../parsers/sjParser.js';
 import { query } from '../db/connection.js';
 
 const MIN_RESULTS = 50;
@@ -12,6 +13,7 @@ const MAX_REFRESH_WINDOW_MS = 2 * 60 * 1000;
 const REFRESH_COOLDOWN_MS = 30 * 60 * 1000;
 
 const hhParser = new HhParser();
+const sjParser = new SjParser();
 
 // key → { startedAt: Date, attempts: number }
 const inProgress = new Map();
@@ -90,9 +92,18 @@ function triggerBackgroundFetch(params) {
   inProgress.set(key, { startedAt: new Date(), attempts: 1 });
   console.log(`[searchService] Запускаем фоновый парсинг: ${key}`);
 
-  hhParser.fetchJobs(toParserFilters(params))
-    .then(jobs => {
-      console.log(`[searchService] Парсинг завершён (${key}): ${jobs.length} вакансий`);
+  const filters = toParserFilters(params);
+
+  Promise.allSettled([
+    hhParser.fetchJobs(filters),
+    sjParser.fetchJobs(filters)
+  ])
+    .then((results) => {
+      let totalFetched = 0;
+      results.forEach(res => {
+        if (res.status === 'fulfilled') totalFetched += res.value.length;
+      });
+      console.log(`[searchService] Парсинг завершён (${key}): суммарно ${totalFetched} вакансий`);
       recentRefreshes.set(key, { finishedAt: new Date() });
     })
     .catch(err => {

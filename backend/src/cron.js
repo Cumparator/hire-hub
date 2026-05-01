@@ -1,9 +1,11 @@
 import { HhParser } from './parsers/hhParser.js';
 import { cleanupOldJobs } from './services/jobsService.js';
+import { SjParser } from './parsers/sjParser.js';
 import { TgParser } from './parsers/tgParser.js';
 
 const hhParser = new HhParser();
 const tgParser = new TgParser();
+const sjParser = new SjParser();
 
 const DEFAULT_FILTERS = {
   text: 'junior OR стажёр OR intern',
@@ -30,6 +32,7 @@ async function runAll() {
   await Promise.allSettled([
     runParser('HH',       () => hhParser.fetchJobs(DEFAULT_FILTERS)),
     runParser('Telegram', () => tgParser.fetchJobs()),
+    runParser('SuperJob', () => sjParser.fetchJobs(DEFAULT_FILTERS)),
   ]);
 }
 
