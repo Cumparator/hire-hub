@@ -1,5 +1,5 @@
 // frontend/src/components/JobCard.js
-// Карточка вакансии. Переход по ссылке требует авторизации.
+// Карточка вакансии.
 
 import { trackJobClick } from '../api/client.js';
 
@@ -19,11 +19,11 @@ export function createJobCard(job, isFavorite = false, onToggleFavorite, { curre
     salaryText = `от ${job.salaryMin} ${job.salaryCurrency}`;
   }
 
-  // Ссылка — просто href, перехватываем кликом
+  // Генерация HTML с ссылкой на внутреннюю страницу
   card.innerHTML = `
     <div class="job-card__header">
       <h3 class="job-card__title">
-        <a href="${job.url}" target="_blank" rel="noopener noreferrer" class="job-card__link">${job.title}</a>
+        <a href="#job/${job.id}" class="job-card__link">${job.title}</a>
       </h3>
       <button class="job-card__fav-btn ${isFavorite ? 'active' : ''}">
         ${isFavorite ? '★ В избранном' : '☆ Сохранить'}
@@ -32,28 +32,13 @@ export function createJobCard(job, isFavorite = false, onToggleFavorite, { curre
     <div class="job-card__company">${job.company || 'Компания не указана'} • ${job.location || 'Локация не указана'}</div>
     <div class="job-card__salary">${salaryText}</div>
     <div class="job-card__stack">
-      ${job.stack.map(t => `<span class="tech-tag">${t}</span>`).join('')}
+      ${job.stack.map(tech => `<span class="tech-tag">${tech}</span>`).join('')}
     </div>
     <div class="job-card__footer">
       <span class="job-card__date">${localDate}</span>
       <span class="job-card__source tag-${job.source}">${job.source}</span>
     </div>
-  `;
-
-  // ── Перехват клика по ссылке ─────────────────────────────────────────────
-  const link = card.querySelector('.job-card__link');
-  link.addEventListener('click', (e) => {
-    if (!currentUser) {
-      e.preventDefault();
-      // Открываем модалку с "отложенным" URL
-      if (openAuthModal) openAuthModal(job.url);
-    } else {
-      // Залогинен — трекаем и пускаем
-      e.preventDefault();
-      trackJobClick(job.id);
-      window.open(job.url, '_blank', 'noopener,noreferrer');
-    }
-  });
+  `; // TODO: не использовать innerHTML в продакшене без санитайза, делать через createElement!!!
 
   // ── Избранное ────────────────────────────────────────────────────────────
   const favBtn = card.querySelector('.job-card__fav-btn');

@@ -13,6 +13,7 @@ import { renderJobs } from './components/JobList.js';
 import { initSearchBar } from './components/SearchBar.js';
 import { initFilterPanel } from './components/FilterPanel.js';
 import { AuthModal } from './components/AuthModal.js';
+import { renderJobDetails } from './components/JobDetails.js';
 
 // ── Глобальное состояние ──────────────────────────────────────────────────────
 
@@ -326,12 +327,41 @@ function buildPageItems(current, totalPages) {
   return items;
 }
 
+// ── Роутинг (переходы по страницам) ────────────────────────────────────────
+
+async function handleRoute() {
+  const hash = window.location.hash;
+  const listView = document.getElementById('list-view');
+  const detailsView = document.getElementById('details-view');
+  const sidebar = document.getElementById('filters-sidebar');
+
+  if (hash.startsWith('#job/')) {
+    const jobId = hash.replace('#job/', '');
+        
+    if (listView) listView.classList.add('hidden');
+    if (sidebar) sidebar.classList.add('hidden');
+    if (detailsView) detailsView.classList.remove('hidden');
+        
+    // Передаем методы авторизации внутрь JobDetails, чтобы там проверять регу
+    // при клике на кнопку "Оригинал вакансии"
+    await renderJobDetails(jobId, favoriteIds, handleToggleFavorite, { currentUser, openAuthModal });
+  } else {
+    if (detailsView) {
+      detailsView.classList.add('hidden');
+      detailsView.innerHTML = '';
+    }
+    if (listView) listView.classList.remove('hidden');
+    if (sidebar) sidebar.classList.remove('hidden');
+  }
+}
+
+window.addEventListener('hashchange', handleRoute);
+
 // ── Аналитика при уходе ───────────────────────────────────────────────────────
 
 function initLeaveTracking() {
   window.addEventListener('beforeunload', () => {
     if (!currentUser) return;
-    // sendBeacon гарантирует отправку при закрытии вкладки
     const body = JSON.stringify({ eventType: 'site_leave' });
     navigator.sendBeacon(`${import.meta.env.VITE_API_URL ?? ''}/api/analytics/event`, new Blob([body], { type: 'application/json' }));
   });
@@ -357,4 +387,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   await loadFavorites();
   await doSearch();
+  
+  // Вызываем роутинг при загрузке, чтобы открыть нужную вьюшку (список или детали)
+  handleRoute();
 });

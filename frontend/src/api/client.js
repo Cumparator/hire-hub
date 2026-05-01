@@ -123,3 +123,7 @@ export async function trackJobClick(jobId) {
     await apiFetch(`/jobs/${jobId}/track-click`, { method: 'POST' });
   } catch { /* не блокируем UX */ }
 }
+
+export async function fetchJobById(id) {
+    return apiFetch(`/jobs/${id}`);
+}

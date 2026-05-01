@@ -412,3 +412,119 @@
         justify-content: flex-start;
     }
 }
+
+.job-details {
+    background: var(--surface);
+    border: 1px solid var(--border-color);
+    padding: 30px;
+    border-radius: 4px;
+}
+
+.back-btn {
+    background: transparent;
+    border: none;
+    color: var(--text-muted);
+    font-family: var(--font-mono);
+    font-size: 0.9rem;
+    cursor: pointer;
+    padding: 0;
+    margin-bottom: 24px;
+    transition: color 0.2s;
+}
+
+.back-btn:hover {
+    color: var(--accent);
+}
+
+.job-details__header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-bottom: 20px;
+    gap: 20px;
+}
+
+.job-details__title {
+    margin: 0 0 12px 0;
+    font-size: 1.8rem;
+}
+
+.job-details__title a {
+    color: var(--text-main);
+    text-decoration: none;
+}
+
+.job-details__title a:hover {
+    color: var(--accent);
+}
+
+.job-details__meta {
+    display: flex;
+    gap: 16px;
+    color: var(--text-muted);
+    font-size: 0.9rem;
+}
+
+.tag-remote {
+    color: var(--accent);
+    border: 1px solid var(--accent);
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-size: 0.8rem;
+}
+
+.job-details__salary {
+    font-size: 1.4rem;
+    color: var(--accent);
+    font-weight: bold;
+    margin-bottom: 24px;
+}
+
+.job-details__stack {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+    margin-bottom: 30px;
+    padding-bottom: 20px;
+    border-bottom: 1px solid var(--border-color);
+}
+
+.job-details__body {
+    line-height: 1.6;
+    color: #d4d4d8;
+    font-size: 1rem;
+}
+
+.loading, .job-details-error {
+    text-align: center;
+    padding: 40px;
+    color: var(--text-muted);
+}
+
+.job-details__body h1, 
+.job-details__body h2, 
+.job-details__body h3, 
+.job-details__body h4 {
+    color: var(--text-main);
+    margin-top: 24px;
+    margin-bottom: 12px;
+}
+
+.job-details__body ul, 
+.job-details__body ol {
+    padding-left: 20px;
+    margin-bottom: 16px;
+}
+
+.job-details__body li {
+    margin-bottom: 8px;
+}
+
+.job-details__body p {
+    margin-bottom: 16px;
+}
+
+.job-details__body strong, 
+.job-details__body b {
+    color: var(--accent); /* Подсвечиваем ключевые слова акцентным цветом */
+}

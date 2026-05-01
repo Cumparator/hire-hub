@@ -13,15 +13,20 @@
         <aside id="filters-sidebar" class="filters-sidebar"></aside>
 
         <main id="main-content">
-            <div id="tabs-container">
-                <button id="tab-all" class="active">Все вакансии</button>
-                <button id="tab-fav">Избранное</button>
+            <div id="list-view">
+                <div id="tabs-container">
+                    <button id="tab-all" class="active">Все вакансии</button>
+                    <button id="tab-fav">Избранное</button>
+                </div>
+                <div id="search-container"></div>
+                <!-- Inline-фильтры под строкой поиска -->
+                <div id="filters-inline"></div>
+                <div id="jobs-list"></div>
+                <div id="pagination"></div>
             </div>
-            <div id="search-container"></div>
-            <!-- Inline-фильтры под строкой поиска -->
-            <div id="filters-inline"></div>
-            <div id="jobs-list"></div>
-            <div id="pagination"></div>
+
+            <!-- ЭКРАН 2: ДЕТАЛЬНАЯ СТРАНИЦА (скрыта по умолчанию) -->
+            <div id="details-view" class="hidden"></div>
         </main>
     </div>
     <script type="module" src="./src/app.js"></script>
