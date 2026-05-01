@@ -1,0 +1,177 @@
+/* ==========================================================
+   Auth Modal  —  Hire Hub
+   Стиль в духе терминала: тёмный фон, моно-шрифт, акцент #00ffcc
+   ========================================================== */
+
+/* ── Оверлей ─────────────────────────────────────────────── */
+.auth-modal {
+    display: none;         
+    position: fixed;
+    inset: 0;
+    z-index: 1000;
+    font-family: var(--font-mono);
+}
+
+.auth-modal--visible {
+    display: block;
+}
+
+.auth-modal__backdrop {
+    position: absolute;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.75);
+    backdrop-filter: blur(3px);
+}
+
+/* ── Диалоговое окно ─────────────────────────────────────── */
+.auth-modal__box {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: min(420px, calc(100vw - 40px));
+    background: var(--surface, #121214);
+    border: 1px solid var(--border-color, #27272a);
+    border-top: 3px solid var(--accent, #00ffcc);
+    padding: 32px;
+    box-shadow: 0 0 40px rgba(0, 255, 204, 0.08);
+}
+
+/* ── Табы (Вход / Регистрация) ───────────────────────────── */
+.auth-modal__tabs {
+    display: flex;
+    gap: 0;
+    margin-bottom: 28px;
+    border-bottom: 1px solid var(--border-color, #27272a);
+}
+
+.auth-modal__tab {
+    flex: 1;
+    background: transparent;
+    border: none;
+    border-bottom: 2px solid transparent;
+    margin-bottom: -1px;
+    color: var(--text-muted, #8a8a93);
+    font-family: var(--font-mono);
+    font-size: 0.9rem;
+    padding: 0 0 12px;
+    cursor: pointer;
+    transition: color 0.2s, border-color 0.2s;
+}
+
+.auth-modal__tab:hover {
+    color: var(--text-main, #e4e4e7);
+}
+
+.auth-modal__tab--active {
+    color: var(--accent, #00ffcc);
+    border-bottom-color: var(--accent, #00ffcc);
+}
+
+/* ── Тело формы ──────────────────────────────────────────── */
+.auth-modal__body {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+/* Хинт ("Войдите, чтобы перейти к вакансии") */
+.auth-modal__hint {
+    margin: 0 0 4px;
+    color: var(--text-muted, #8a8a93);
+    font-size: 0.82rem;
+    min-height: 1.2em;
+}
+
+/* ── Поля ввода ──────────────────────────────────────────── */
+.auth-modal__input {
+    width: 100%;
+    box-sizing: border-box;
+    background: #000;
+    border: 1px solid var(--border-color, #27272a);
+    color: var(--accent, #00ffcc);
+    font-family: var(--font-mono);
+    font-size: 0.95rem;
+    padding: 14px 16px;
+    outline: none;
+    transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+.auth-modal__input::placeholder {
+    color: #3f3f46;
+}
+
+.auth-modal__input:focus {
+    border-color: var(--accent, #00ffcc);
+    box-shadow: 0 0 10px rgba(0, 255, 204, 0.15);
+}
+
+/* Поле со статусом ошибки */
+.auth-modal__input--error {
+    border-color: var(--danger, #ff0055);
+    box-shadow: 0 0 10px rgba(255, 0, 85, 0.15);
+}
+
+/* ── Блок ошибки ─────────────────────────────────────────── */
+.auth-modal__error {
+    margin: 0;
+    min-height: 1.4em;        
+    color: var(--danger, #ff0055);
+    font-size: 0.82rem;
+    line-height: 1.4;
+    padding-left: 18px;
+    position: relative;
+}
+
+.auth-modal__error:not(:empty)::before {
+    content: '✖';
+    position: absolute;
+    left: 0;
+    top: 0;
+    font-size: 0.75rem;
+}
+
+/* ── Shake-анимация при ошибке ───────────────────────────── */
+@keyframes auth-shake {
+    0%        { transform: translate(-50%, -50%) translateX(0); }
+    15%       { transform: translate(-50%, -50%) translateX(-7px); }
+    30%       { transform: translate(-50%, -50%) translateX(7px); }
+    45%       { transform: translate(-50%, -50%) translateX(-5px); }
+    60%       { transform: translate(-50%, -50%) translateX(5px); }
+    75%       { transform: translate(-50%, -50%) translateX(-3px); }
+    90%       { transform: translate(-50%, -50%) translateX(3px); }
+    100%      { transform: translate(-50%, -50%) translateX(0); }
+}
+
+.auth-modal__box--shake {
+    animation: auth-shake 0.45s cubic-bezier(0.36, 0.07, 0.19, 0.97) both;
+}
+
+/* ── Кнопка отправки ─────────────────────────────────────── */
+.auth-modal__submit {
+    margin-top: 4px;
+    background: transparent;
+    border: 1px solid var(--border-color, #27272a);
+    color: var(--text-main, #e4e4e7);
+    font-family: var(--font-mono);
+    font-size: 0.95rem;
+    padding: 14px;
+    cursor: pointer;
+    text-transform: uppercase;
+    font-weight: bold;
+    letter-spacing: 0.06em;
+    transition: background 0.2s, color 0.2s, border-color 0.2s, box-shadow 0.2s;
+}
+
+.auth-modal__submit:hover:not(:disabled) {
+    background: var(--accent, #00ffcc);
+    color: #000;
+    border-color: var(--accent, #00ffcc);
+    box-shadow: 0 0 14px rgba(0, 255, 204, 0.3);
+}
+
+.auth-modal__submit:disabled {
+    opacity: 0.45;
+    cursor: wait;
+}
+
