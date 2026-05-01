@@ -80,11 +80,13 @@ export class SjParser extends BaseParser {
         const stacks = Array.isArray(filters.stacks) && filters.stacks.length
             ? filters.stacks
             : FULL_STACK_LIST;
-        const query = filters.query?.trim();
+        
+        // Поддерживаем как query (от умного поиска на фронте), так и text (из cron.js)
+        const query = (filters.query || filters.text)?.trim();
 
         return stacks.map((stack) => ({
             stack,
-            keyword: query ? `${query} ${stack}`.trim() : `${stack} junior`,
+            keyword: query ? `${query} ${stack}`.trim() : stack,
         }));
     }
 
@@ -93,18 +95,22 @@ export class SjParser extends BaseParser {
         let page = 0;
         let more = true;
 
-        while (more && page < 5) { // Ограничиваем глубину 5 страницами
+        // Ограничиваем глубину 10 страницами (до 1000 вакансий на один тег за раз)
+        while (more && page < 10) {
             const params = new URLSearchParams({
                 keyword: target.keyword,
                 count: '100',
                 page: String(page),
+                catalogues: '33', // Строго категория "IT, Интернет, связь, телеком" // мб убрать?
             });
 
             if (filters.schedule === 'remote') {
                 params.append('place_of_work', '2'); // 2 - на дому / удаленная
             }
+            
+            // Прокидываем фильтр по опыту, только если он явно задан в запросе
             if (filters.experience && REVERSE_EXPERIENCE_MAP[filters.experience]) {
-                params.append('experience', REVERSE_EXPERIENCE_MAP[filters.experience]);
+                params.append('experience', String(REVERSE_EXPERIENCE_MAP[filters.experience]));
             }
 
             const resp = await fetch(`${SJ_API}/vacancies/?${params}`, {

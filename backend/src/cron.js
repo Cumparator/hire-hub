@@ -7,9 +7,7 @@ const hhParser = new HhParser();
 const tgParser = new TgParser();
 const sjParser = new SjParser();
 
-const DEFAULT_FILTERS = {
-  text: 'junior OR стажёр OR intern',
-};
+const DEFAULT_FILTERS = {};
 
 export function startCronJobs() {
   // Запускаем сразу при старте

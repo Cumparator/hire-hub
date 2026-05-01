@@ -105,7 +105,7 @@ export class HhParser extends BaseParser {
 
         return stacks.map((stack) => ({
             stack,
-            text: query ? `${query} ${stack}`.trim() : `${stack} junior`,
+            text: query ? `${query} ${stack}`.trim() : stack,
         }));
     }
 
