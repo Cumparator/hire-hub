@@ -1,6 +1,7 @@
 import { getJobs } from './jobsService.js';
 import { HhParser } from '../parsers/hhParser.js';
 import { SjParser } from '../parsers/sjParser.js';
+import { ZpParser } from '../parsers/zpParser.js';
 import { query } from '../db/connection.js';
 
 const MIN_RESULTS = 50;
@@ -14,6 +15,7 @@ const REFRESH_COOLDOWN_MS = 30 * 60 * 1000;
 
 const hhParser = new HhParser();
 const sjParser = new SjParser();
+const zpParser = new ZpParser();
 
 // key → { startedAt: Date, attempts: number }
 const inProgress = new Map();
@@ -96,7 +98,8 @@ function triggerBackgroundFetch(params) {
 
   Promise.allSettled([
     hhParser.fetchJobs(filters),
-    sjParser.fetchJobs(filters)
+    sjParser.fetchJobs(filters),
+    zpParser.fetchJobs(filters)
   ])
     .then((results) => {
       let totalFetched = 0;

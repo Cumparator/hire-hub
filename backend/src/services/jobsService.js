@@ -127,7 +127,7 @@ export async function getJobById(id) {
 
   let jobRow = result.rows[0];
 
-  if (jobRow.source === 'hh' && (!jobRow.description || !jobRow.description.includes('<'))) {
+  if ((jobRow.source === 'hh' || jobRow.source === 'zarplata') && (!jobRow.description || !jobRow.description.includes('<'))) {
       try {
           const headers = {
               'User-Agent': process.env.HH_APP_NAME || 'HireHub/1.0 (contact@hirehub.dev)'
@@ -146,10 +146,10 @@ export async function getJobById(id) {
                   jobRow.description = data.description;
               }
           } else {
-              console.error(`[jobsService] ХХ.ру послал нас! Статус: ${resp.status} ${resp.statusText}`);
+              console.error(`[jobsService] ХХ.ру/Зарплата послал нас! Статус: ${resp.status}`);
           }
       } catch (err) {
-          console.error(`[jobsService] Ошибка сети при загрузке HH:`, err.message);
+          console.error(`[jobsService] Ошибка сети при загрузке HH/Zarplata:`, err.message);
       }
   }
 
