@@ -10,18 +10,10 @@ import { register,
          logout,
          getSession,
          AuthError }            from '../services/authService.js';
+import { query }                from '../db/connection.js';
 
 // ── Централизованный обработчик ошибок ────────────────────────────────────
 
-/**
- * Превращает любой брошенный объект в стандартный JSON-ответ.
- *
- * Формат всегда:
- *   { "error": "Текст для пользователя", "code": "MACHINE_CODE" }
- *
- * AuthError — ожидаемые ошибки бизнес-логики (400 / 401 / 409).
- * Всё остальное — 500 Internal Server Error (детали не раскрываем).
- */
 function handleError(res, err) {
   if (err instanceof AuthError) {
     return res.status(err.status).json({
@@ -62,6 +54,27 @@ export function registerRoutes(app) {
     try {
       const result = await smartSearch(req.query);
       res.json(result);
+    } catch (err) {
+      handleError(res, err);
+    }
+  });
+
+  // ── Список городов (ВАЖНО: до /api/jobs/:id, иначе 'locations' парсится как id) ──
+  app.get('/api/jobs/locations', async (req, res) => {
+    try {
+      const result = await query(`
+        SELECT location, COUNT(*) as cnt
+        FROM jobs
+        WHERE location IS NOT NULL
+          AND location != ''
+          AND location NOT ILIKE '%удалён%'
+          AND location NOT ILIKE '%remote%'
+        GROUP BY location
+        ORDER BY cnt DESC
+        LIMIT 20
+      `);
+      const locations = result.rows.map(r => r.location);
+      res.json({ locations });
     } catch (err) {
       handleError(res, err);
     }
@@ -118,7 +131,6 @@ export function registerRoutes(app) {
 
   // ── Аутентификация ────────────────────────────────────────────────────────
 
-  // Общие настройки cookie
   const COOKIE_OPTS = {
     httpOnly: true,
     sameSite: 'lax',

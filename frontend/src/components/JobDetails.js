@@ -19,26 +19,30 @@ export async function renderJobDetails(jobId, favoriteIds, onToggleFavorite, { c
         else if (job.salaryMin) salaryText = `от ${job.salaryMin} ${job.salaryCurrency}`;
         else if (job.salaryMax) salaryText = `до ${job.salaryMax} ${job.salaryCurrency}`;
 
-        // --- ИЗМЕНИЛИ ЛОГИКУ ОПИСАНИЯ ---
         let finalDescription = 'Описание отсутствует.';
         if (job.description) {
-            // Если текст похож на HTML от ХХ (есть теги), вставляем как разметку
             if (job.description.includes('<') && job.description.includes('>')) {
                 finalDescription = job.description;
             } else {
-                // Иначе экранируем и меняем переносы строк на <br> (для ТГ-каналов)
                 finalDescription = job.description.replace(/</g, '&lt;').replace(/\n/g, '<br>');
             }
         }
 
+        // Строим шапку: кнопка назад + кнопка входа если не авторизован
+        const authButtonHtml = currentUser
+            ? `<span class="details-user-name">${currentUser.login}</span>`
+            : `<button class="details-login-btn" id="details-btn-login">Войти / Зарегистрироваться</button>`;
+
         container.innerHTML = `
-            <div class="job-details">
+            <div class="details-topbar">
                 <button id="back-btn" class="back-btn">← Назад к поиску</button>
-                
+                <div class="details-topbar__auth">${authButtonHtml}</div>
+            </div>
+
+            <div class="job-details">
                 <div class="job-details__header">
                     <div>
                         <h1 class="job-details__title">
-                            <!-- Добавили класс original-url-link для перехвата клика -->
                             <a href="${job.url}" class="original-url-link" target="_blank" rel="noopener noreferrer">${job.title} ↗</a>
                         </h1>
                         <div class="job-details__meta">
@@ -62,16 +66,21 @@ export async function renderJobDetails(jobId, favoriteIds, onToggleFavorite, { c
             </div>
         `;
 
+        // ── Кнопка входа в шапке детальной страницы ──────────────────────────
+        const detailsLoginBtn = container.querySelector('#details-btn-login');
+        if (detailsLoginBtn && openAuthModal) {
+            detailsLoginBtn.addEventListener('click', () => openAuthModal());
+        }
+
         // ── Перехват клика по ссылке на оригинал ──────────────────────────────
         const originalLink = container.querySelector('.original-url-link');
         originalLink.addEventListener('click', (e) => {
             if (!currentUser) {
-                e.preventDefault(); // Останавливаем переход
+                e.preventDefault();
                 if (openAuthModal) {
                     openAuthModal(job.url, 'Войдите, чтобы перейти к оригиналу вакансии');
                 }
             } else {
-                // Если залогинен — трекаем клик и пускаем дальше
                 trackJobClick(job.id);
             }
         });
@@ -87,9 +96,6 @@ export async function renderJobDetails(jobId, favoriteIds, onToggleFavorite, { c
             const btn = e.target;
             const id = btn.dataset.id;
             const currentlyFav = btn.classList.contains('active');
-            
-            // onToggleFavorite (handleToggleFavorite из app.js) 
-            // сама проверит авторизацию, сходит на сервер и обновит классы/текст кнопки
             await onToggleFavorite(id, !currentlyFav, btn);
         });
 

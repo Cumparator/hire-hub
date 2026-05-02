@@ -19,6 +19,7 @@ body {
     font-family: var(--font-mono);
     margin: 0;
     padding: 40px 20px;
+    box-sizing: border-box;
 }
 
 #app {
@@ -38,7 +39,7 @@ body {
     border-bottom: 1px solid var(--border-color, #27272a);
     margin-bottom: 24px;
     width: 100%;
-    height: 45px;
+    min-height: 45px;
 }
 
 .tabs {
@@ -68,7 +69,8 @@ body {
 .user-menu {
     display: flex;
     align-items: center;
-    margin-left: auto; 
+    margin-left: auto;
+    flex-shrink: 0;
 }
 
 .user-menu__content {
@@ -87,6 +89,7 @@ body {
     cursor: pointer;
     padding: 10px 0; 
     transition: color 0.2s;
+    white-space: nowrap;
 }
 
 .user-menu__login:hover, 
@@ -97,9 +100,56 @@ body {
 .user-menu__name {
     color: var(--text-main, #e4e4e7);
     font-family: var(--font-mono);
+    white-space: nowrap;
 }
 
 .user-menu__divider {
     color: #444;
     margin: 0 4px;
+}
+
+/* --- Мобильная шапка --- */
+@media (max-width: 600px) {
+    body {
+        padding: 20px 14px;
+    }
+
+    #tabs-container {
+        /* На мобиле переносим user-menu на новую строку */
+        flex-wrap: wrap;
+        height: auto;
+        gap: 0;
+        padding-bottom: 0;
+        align-items: flex-start;
+    }
+
+    /* Табы занимают всю ширину первой строки */
+    .tabs {
+        display: flex;
+        gap: 16px;
+        width: 100%;
+        padding-bottom: 10px;
+    }
+
+    /* user-menu переезжает на вторую строку */
+    .user-menu {
+        width: 100%;
+        margin-left: 0;
+        padding: 6px 0 10px;
+        border-top: 1px solid var(--border-color);
+    }
+
+    .user-menu__login {
+        /* Убираем обрезку буквы "я" — раньше контейнер был слишком узким */
+        font-size: 0.85rem;
+        padding: 4px 0;
+    }
+
+    .user-menu__name {
+        font-size: 0.85rem;
+    }
+
+    .user-menu__logout {
+        font-size: 0.85rem;
+    }
 }

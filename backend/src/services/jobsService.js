@@ -9,6 +9,7 @@ export async function getJobs(params = {}) {
     stack,
     salary,
     salary_from,
+    location,
     page = 1,
     per_page = 20,
   } = params;
@@ -48,7 +49,6 @@ export async function getJobs(params = {}) {
   }
 
   // stack: OR-фильтр с ILIKE, ORDER BY по количеству совпадений (AND-приоритет)
-  // Важно: плейсхолдеры для WHERE и ORDER BY — одни и те же, не дублируем значения.
   let stackOrderExpr = null;
   if (stack) {
     const stackArr = stack.split(',').map(s => s.trim()).filter(Boolean);
@@ -58,9 +58,14 @@ export async function getJobs(params = {}) {
       // WHERE: хотя бы один тег совпадает
       conditions.push(`(${phs.map(ph => `${ph} ILIKE ANY(stack)`).join(' OR ')})`);
 
-      // ORDER BY: используем те же $N — считаем сколько совпало
+      // ORDER BY: считаем сколько совпало
       stackOrderExpr = phs.map(ph => `(CASE WHEN ${ph} ILIKE ANY(stack) THEN 1 ELSE 0 END)`).join(' + ');
     }
+  }
+
+  // location — фильтр по городу (ILIKE для регистронезависимости)
+  if (location) {
+    conditions.push(`location ILIKE ${push('%' + String(location).trim() + '%')}`);
   }
 
   // salary
@@ -87,7 +92,6 @@ export async function getJobs(params = {}) {
   const limit  = Math.min(Math.max(Number(per_page) || 20, 1), 50);
   const offset = (Math.max(Number(page) || 1, 1) - 1) * limit;
 
-  // Снимок values ДО добавления limit/offset — используется в COUNT-запросе
   const filterValues = [...values];
 
   const dataValues = [...values, limit, offset];

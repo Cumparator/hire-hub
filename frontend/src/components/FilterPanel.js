@@ -1,6 +1,6 @@
 // frontend/src/components/FilterPanel.js
 
-export function initFilterPanel(onFilter) {
+export async function initFilterPanel(onFilter) {
 
     const STACK_OPTIONS = [
         'Python', 'JavaScript', 'TypeScript', 'Go', 'Rust',
@@ -23,7 +23,6 @@ export function initFilterPanel(onFilter) {
         { label: '6+ yr',   value: 'moreThan6'      },
     ];
 
-    // multiple: true — можно выбрать несколько
     const EMPLOYMENT_OPTIONS = [
         { label: 'Полная',    value: 'full'     },
         { label: 'Частичная', value: 'part'     },
@@ -38,9 +37,34 @@ export function initFilterPanel(onFilter) {
         stack:       [],      // multi — OR-поиск
         experience:  [],      // multi
         employment:  [],      // multi
+        location:    null,    // строка — один город или null
     };
 
+    // Загружаем список городов с бэкенда
+    let locationOptions = [];
+    try {
+        const resp = await fetch('/api/jobs/locations');
+        if (resp.ok) {
+            const data = await resp.json();
+            locationOptions = data.locations || [];
+        }
+    } catch (e) {
+        // fallback — пустой список, секция просто не покажет города
+        locationOptions = [];
+    }
+
     function buildHTML() {
+        const locationSection = locationOptions.length > 0 ? `
+            <div class="filters__group">
+                <div class="filters__label">location</div>
+                <div class="filters__chips filters__chips--wrap">
+                    ${locationOptions.map(city => `
+                        <button class="chip" data-filter="location" data-value="${city}">${city}</button>
+                    `).join('')}
+                </div>
+            </div>
+        ` : '';
+
         return `
         <div class="filters">
             <div class="filters__header">
@@ -55,6 +79,8 @@ export function initFilterPanel(onFilter) {
                     <button class="chip" data-filter="remote" data-value="false">Офис</button>
                 </div>
             </div>
+
+            ${locationSection}
 
             <div class="filters__group">
                 <div class="filters__label">salary</div>
@@ -121,6 +147,9 @@ export function initFilterPanel(onFilter) {
             root.querySelectorAll('[data-filter="stack"]').forEach(btn => {
                 btn.classList.toggle('chip--active', state.stack.includes(btn.dataset.value));
             });
+            root.querySelectorAll('[data-filter="location"]').forEach(btn => {
+                btn.classList.toggle('chip--active', btn.dataset.value === state.location);
+            });
         });
     }
 
@@ -131,6 +160,7 @@ export function initFilterPanel(onFilter) {
         if (state.stack.length)         params.stack      = state.stack.join(',');
         if (state.experience.length)    params.experience = state.experience.join(',');
         if (state.employment.length)    params.employment = state.employment.join(',');
+        if (state.location !== null)    params.location   = state.location;
 
         // salary: если выбран диапазон
         if (state.salaryMin !== null)   params.salary = `>${state.salaryMin}`;
@@ -154,6 +184,7 @@ export function initFilterPanel(onFilter) {
             state.stack = [];
             state.experience = [];
             state.employment = [];
+            state.location = null;
             syncUI();
             applyFilters();
             return;
@@ -182,6 +213,10 @@ export function initFilterPanel(onFilter) {
 
         } else if (filter === 'stack') {
             toggleMulti(state.stack, value);
+
+        } else if (filter === 'location') {
+            // toggle: повторный клик снимает
+            state.location = state.location === value ? null : value;
         }
 
         syncUI();
