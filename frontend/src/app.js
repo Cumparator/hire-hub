@@ -373,7 +373,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   authModal = new AuthModal({ onSuccess: handleAuthSuccess });
 
   initSearchBar(handleSearch);
-  initFilterPanel(handleFilter);
+  await initFilterPanel(handleFilter);
   initTabs();
   initLeaveTracking();
 
