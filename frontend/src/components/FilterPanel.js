@@ -1,5 +1,7 @@
 // frontend/src/components/FilterPanel.js
 
+import { trackEvent } from '../api/client.js';
+
 export async function initFilterPanel(onFilter) {
 
     const STACK_OPTIONS = [
@@ -162,10 +164,10 @@ export async function initFilterPanel(onFilter) {
         if (state.employment.length)    params.employment = state.employment.join(',');
         if (state.location !== null)    params.location   = state.location;
 
-        // salary: если выбран диапазон
         if (state.salaryMin !== null)   params.salary = `>${state.salaryMin}`;
         else if (state.salaryMax !== null) params.salary = `<${state.salaryMax}`;
 
+        trackEvent('filter_apply');
         onFilter(params);
     }
 

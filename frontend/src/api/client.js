@@ -9,7 +9,6 @@ function normalizeApiBase(rawBase) {
   return `${trimmed}/api`;
 }
 
-// Генерация userId для legacy X-User-Id (избранное без авторизации)
 function generateUserId() {
   if (globalThis.crypto?.randomUUID) return globalThis.crypto.randomUUID();
   if (globalThis.crypto?.getRandomValues) {
@@ -33,7 +32,7 @@ async function apiFetch(path, options = {}) {
   const url = `${API_BASE}${path}`;
   const res = await fetch(url, {
     cache: 'no-store',
-    credentials: 'include',          // отправляем cookie с сессией
+    credentials: 'include',
     ...options,
     headers: {
       'Content-Type': 'application/json',
@@ -114,14 +113,15 @@ export async function trackEvent(eventType, jobId = null) {
     await apiFetch('/analytics/event', {
       method: 'POST',
       body: JSON.stringify({ eventType, jobId }),
+      keepalive: true
     });
-  } catch { /* не блокируем UX */ }
+  } catch {}
 }
 
 export async function trackJobClick(jobId) {
   try {
-    await apiFetch(`/jobs/${jobId}/track-click`, { method: 'POST' });
-  } catch { /* не блокируем UX */ }
+    await apiFetch(`/jobs/${jobId}/track-click`, { method: 'POST', keepalive: true });
+  } catch {}
 }
 
 export async function fetchJobById(id) {

@@ -1,4 +1,4 @@
-import { fetchJobById, trackJobClick } from '../api/client.js';
+import { fetchJobById, trackJobClick, trackEvent } from '../api/client.js';
 
 export async function renderJobDetails(jobId, favoriteIds, onToggleFavorite, { currentUser, openAuthModal } = {}) {
     const container = document.getElementById('details-view');
@@ -10,10 +10,8 @@ export async function renderJobDetails(jobId, favoriteIds, onToggleFavorite, { c
         const job = await fetchJobById(jobId);
         const isFav = favoriteIds.has(job.id);
         
-        // Рендерим теги стека
         const stackHtml = (job.stack || []).map(tech => `<span class="tech-tag">${tech}</span>`).join('');
         
-        // Форматируем ЗП
         let salaryText = 'Зарплата не указана';
         if (job.salaryMin && job.salaryMax) salaryText = `от ${job.salaryMin} до ${job.salaryMax} ${job.salaryCurrency}`;
         else if (job.salaryMin) salaryText = `от ${job.salaryMin} ${job.salaryCurrency}`;
@@ -28,7 +26,6 @@ export async function renderJobDetails(jobId, favoriteIds, onToggleFavorite, { c
             }
         }
 
-        // Строим шапку: кнопка назад + кнопка входа если не авторизован
         const authButtonHtml = currentUser
             ? `<span class="details-user-name">${currentUser.login}</span>`
             : `<button class="details-login-btn" id="details-btn-login">Войти / Зарегистрироваться</button>`;
@@ -66,31 +63,28 @@ export async function renderJobDetails(jobId, favoriteIds, onToggleFavorite, { c
             </div>
         `;
 
-        // ── Кнопка входа в шапке детальной страницы ──────────────────────────
         const detailsLoginBtn = container.querySelector('#details-btn-login');
         if (detailsLoginBtn && openAuthModal) {
             detailsLoginBtn.addEventListener('click', () => openAuthModal());
         }
 
-        // ── Перехват клика по ссылке на оригинал ──────────────────────────────
         const originalLink = container.querySelector('.original-url-link');
         originalLink.addEventListener('click', (e) => {
+            trackEvent('job_redirect', job.id);
+            trackJobClick(job.id);
+            
             if (!currentUser) {
                 e.preventDefault();
                 if (openAuthModal) {
                     openAuthModal(job.url, 'Войдите, чтобы перейти к оригиналу вакансии');
                 }
-            } else {
-                trackJobClick(job.id);
             }
         });
 
-        // Обработчик для кнопки "Назад"
         document.getElementById('back-btn').addEventListener('click', () => {
             window.location.hash = '';
         });
 
-        // Обработчик для избранного
         const favBtn = container.querySelector('.details-fav-btn');
         favBtn.addEventListener('click', async (e) => {
             const btn = e.target;

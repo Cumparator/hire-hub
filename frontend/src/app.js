@@ -45,8 +45,8 @@ async function handleAuthSuccess(user) {
   currentUser = user;
   renderUserMenu();
   trackEvent('site_entry');
-  await loadFavorites(); // добавить эту строку
-  renderJobList(currentJobs); // перерендерить карточки
+  await loadFavorites();
+  renderJobList(currentJobs);
 }
 // ── Меню пользователя ─────────────────────────────────────────────────────────
 function renderUserMenu() {
@@ -178,7 +178,7 @@ function handleFilter(params) {
 
 async function handleToggleFavorite(jobId, isAdding, btnElement) {
   if (!currentUser) {
-    openAuthModal(null, 'Войдите, чтобы добавить в избранное');
+    openAuthModal(null, '');
     return;
   }
 
@@ -188,11 +188,13 @@ async function handleToggleFavorite(jobId, isAdding, btnElement) {
       favoriteIds.add(jobId);
       btnElement.classList.add('active');
       btnElement.textContent = '★ В избранном';
+      trackEvent('favorite_add', jobId);
     } else {
       await removeFavorite(jobId);
       favoriteIds.delete(jobId);
       btnElement.classList.remove('active');
       btnElement.textContent = '☆ Сохранить';
+      trackEvent('favorite_remove', jobId);
     }
   } catch (err) {
     console.error('Ошибка изменения избранного:', err);
@@ -337,13 +339,13 @@ async function handleRoute() {
 
   if (hash.startsWith('#job/')) {
     const jobId = hash.replace('#job/', '');
+    
+    trackEvent('job_view', jobId);
         
     if (listView) listView.classList.add('hidden');
     if (sidebar) sidebar.classList.add('hidden');
     if (detailsView) detailsView.classList.remove('hidden');
         
-    // Передаем методы авторизации внутрь JobDetails, чтобы там проверять регу
-    // при клике на кнопку "Оригинал вакансии"
     await renderJobDetails(jobId, favoriteIds, handleToggleFavorite, { currentUser, openAuthModal });
   } else {
     if (detailsView) {
@@ -361,9 +363,7 @@ window.addEventListener('hashchange', handleRoute);
 
 function initLeaveTracking() {
   window.addEventListener('beforeunload', () => {
-    if (!currentUser) return;
-    const body = JSON.stringify({ eventType: 'site_leave' });
-    navigator.sendBeacon(`${import.meta.env.VITE_API_URL ?? ''}/api/analytics/event`, new Blob([body], { type: 'application/json' }));
+    trackEvent('site_leave');
   });
 }
 
@@ -373,21 +373,19 @@ document.addEventListener('DOMContentLoaded', async () => {
   authModal = new AuthModal({ onSuccess: handleAuthSuccess });
 
   initSearchBar(handleSearch);
-  await initFilterPanel(handleFilter);
+  initFilterPanel(handleFilter);
   initTabs();
   initLeaveTracking();
 
-  // Восстанавливаем сессию
   const meData = await fetchCurrentUser();
   if (meData?.user) {
     currentUser = meData.user;
-    trackEvent('site_entry');
   }
   renderUserMenu();
 
   await loadFavorites();
   await doSearch();
   
-  // Вызываем роутинг при загрузке, чтобы открыть нужную вьюшку (список или детали)
   handleRoute();
+  trackEvent('site_entry');
 });

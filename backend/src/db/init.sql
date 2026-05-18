@@ -68,7 +68,7 @@ CREATE INDEX IF NOT EXISTS sessions_expires_idx ON sessions (expires_at);
 -- =============================================================
 CREATE TABLE IF NOT EXISTS user_analytics (
   id         UUID          PRIMARY KEY DEFAULT gen_random_uuid(),
-  user_id    UUID          NOT NULL REFERENCES users (id) ON DELETE CASCADE,
+  user_id    TEXT          NOT NULL,
   event_type TEXT          NOT NULL,   -- 'site_entry' | 'job_redirect' | 'site_leave'
   job_id     UUID          REFERENCES jobs (id) ON DELETE SET NULL,
   timestamp  TIMESTAMPTZ   NOT NULL DEFAULT NOW()
@@ -82,9 +82,9 @@ CREATE INDEX IF NOT EXISTS analytics_time_idx  ON user_analytics (timestamp DESC
 --  Таблица счётчиков кликов
 -- =============================================================
 CREATE TABLE IF NOT EXISTS job_click_stats (
-  user_id      UUID          NOT NULL REFERENCES users (id) ON DELETE CASCADE,
-  job_id       UUID          NOT NULL REFERENCES jobs (id) ON DELETE CASCADE,
-  click_count  INTEGER       NOT NULL DEFAULT 1,
+  user_id       TEXT          NOT NULL,
+  job_id        UUID          NOT NULL REFERENCES jobs (id) ON DELETE CASCADE,
+  click_count   INTEGER       NOT NULL DEFAULT 1,
   last_click_at TIMESTAMPTZ  NOT NULL DEFAULT NOW(),
   PRIMARY KEY (user_id, job_id)
 );

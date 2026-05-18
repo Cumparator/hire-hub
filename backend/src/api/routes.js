@@ -27,8 +27,6 @@ function handleError(res, err) {
   });
 }
 
-// ── Middleware: требуем авторизацию ──────────────────────────────────────
-
 async function requireAuth(req, res, next) {
   const token = req.cookies?.session;
   const session = await getSession(token).catch(() => null);
@@ -59,7 +57,7 @@ export function registerRoutes(app) {
     }
   });
 
-  // ── Список городов (ВАЖНО: до /api/jobs/:id, иначе 'locations' парсится как id) ──
+  // ── Список городов ──
   app.get('/api/jobs/locations', async (req, res) => {
     try {
       const result = await query(`
@@ -142,6 +140,11 @@ export function registerRoutes(app) {
       const { login, password } = req.body ?? {};
       const result = await register(login, password);
 
+      await query(
+        `INSERT INTO user_analytics (user_id, event_type) VALUES ($1, $2)`,
+        [result.user.id, 'user_register']
+      );
+
       res.cookie('session', result.token, {
         ...COOKIE_OPTS,
         expires: result.expires,
@@ -184,6 +187,43 @@ export function registerRoutes(app) {
       res.json({ user: session.user });
     } catch (err) {
       handleError(res, err);
+    }
+  });
+
+  app.post('/api/analytics/event', async (req, res) => {
+    try {
+      const token = req.cookies?.session;
+      const session = await getSession(token).catch(() => null);
+      const userId = session?.user?.id || req.headers['x-user-id'] || 'guest';
+      
+      const { eventType, jobId } = req.body ?? {};
+      
+      await query(
+        `INSERT INTO user_analytics (user_id, event_type, job_id) VALUES ($1, $2, $3)`,
+        [userId, eventType, jobId || null]
+      );
+      res.sendStatus(204);
+    } catch (err) {
+      res.sendStatus(204);
+    }
+  });
+
+  app.post('/api/jobs/:id/track-click', async (req, res) => {
+    try {
+      const token = req.cookies?.session;
+      const session = await getSession(token).catch(() => null);
+      const userId = session?.user?.id || req.headers['x-user-id'] || 'guest';
+      const jobId = req.params.id;
+
+          await query(`
+            INSERT INTO job_click_stats (user_id, job_id, click_count, last_click_at)
+            VALUES ($1, $2, 1, NOW())
+            ON CONFLICT (user_id, job_id) DO UPDATE
+            SET click_count = job_click_stats.click_count + 1, last_click_at = NOW()
+          `, [userId, jobId]);
+      res.sendStatus(204);
+    } catch (err) {
+      res.sendStatus(204);
     }
   });
 }
