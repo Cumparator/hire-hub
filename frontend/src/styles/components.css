@@ -304,6 +304,27 @@
     background: var(--accent-glow);
 }
 
+/* --- Кастомный чип: значение пришло из строки поиска (например
+   salary:>90000 или stack:elixir) и не покрывается готовой кнопкой выше.
+   Визуально отличается пунктирной рамкой — сигнализирует "это не кнопка,
+   это активный фильтр из текста поиска", и крестиком для быстрого снятия. --- */
+.chip--custom {
+    border-style: dashed;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.chip__remove {
+    font-size: 0.95em;
+    line-height: 1;
+    opacity: 0.7;
+}
+
+.chip--custom:hover .chip__remove {
+    opacity: 1;
+}
+
 /* --- Inline-фильтры под строкой поиска --- */
 #filters-inline {
     margin-bottom: 32px;

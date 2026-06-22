@@ -27,6 +27,11 @@ let searchParams = {};
 let filterParams = {};
 let refreshTimerId = null;
 
+// Хендлы компонентов поиска и фильтров — нужны, чтобы синхронизировать их
+// между собой (см. handleSearch / handleFilterCustomRemoved ниже)
+let searchBarHandle  = null;
+let filterPanelHandle = null;
+
 const JOBS_PER_PAGE         = 20;
 const REFRESH_POLL_INTERVAL = 5000;
 
@@ -162,11 +167,25 @@ function stopRefreshPolling() {
   document.querySelector('#jobs-list .refreshing-banner')?.remove();
 }
 
-function handleSearch(params) {
+function handleSearch(params, parsed) {
   stopRefreshPolling();
-  searchParams = params;
   currentPage = 1;
-  doSearch();
+
+  // В поисковую строку могли быть введены структурированные токены
+  // (remote:, salary:, stack:, experience:) — синхронизируем их с панелью
+  // фильтров, чтобы активный фильтр был виден: либо подсвечивается готовая
+  // кнопка, либо (для нестандартных значений вроде salary:>90000 или
+  // произвольного тега стека) рисуется отдельный чип с крестиком.
+  // FilterPanel — единственный источник правды для этих параметров:
+  // applyFromSearch сама обновит filterParams и вызовет doSearch() через
+  // onFilter → handleFilter, поэтому здесь не дублируем запрос.
+  if (parsed && filterPanelHandle) {
+    searchParams = params.q ? { q: params.q } : {};
+    filterPanelHandle.applyFromSearch(parsed);
+  } else {
+    searchParams = params;
+    doSearch();
+  }
 }
 
 function handleFilter(params) {
@@ -174,6 +193,15 @@ function handleFilter(params) {
   filterParams = params;
   currentPage  = 1;
   doSearch();
+}
+
+/**
+ * Вызывается FilterPanel, когда пользователь снимает кастомный чип
+ * (значение, пришедшее из строки поиска). Убираем соответствующий
+ * токен из текста поиска, чтобы он не "вернулся" при следующем запросе.
+ */
+function handleFilterCustomRemoved({ type, value }) {
+  searchBarHandle?.removeToken(type, value);
 }
 
 async function handleToggleFavorite(jobId, isAdding, btnElement) {
@@ -372,8 +400,9 @@ function initLeaveTracking() {
 document.addEventListener('DOMContentLoaded', async () => {
   authModal = new AuthModal({ onSuccess: handleAuthSuccess });
 
-  initSearchBar(handleSearch);
-  initFilterPanel(handleFilter);
+  searchBarHandle   = initSearchBar(handleSearch);
+  filterPanelHandle = await initFilterPanel(handleFilter);
+  filterPanelHandle?.setOnCustomRemoved(handleFilterCustomRemoved);
   initTabs();
   initLeaveTracking();
 

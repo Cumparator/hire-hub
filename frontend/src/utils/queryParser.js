@@ -9,7 +9,12 @@
  *   remote:true|false         — формат работы
  *   salary:>N | <N | N        — зарплата (поддерживает k: 80k → 80000)
  *   stack:tech1,tech2         — стек через запятую
- *   experience:N              — лет опыта
+ *   experience:N              — лет опыта (конвертируется в категорию,
+ *                                совпадающую с кнопками фильтра):
+ *                                0       → no_experience
+ *                                1–2     → between1And3
+ *                                3–5     → between3And6
+ *                                6+      → moreThan6
  *
  * Всё остальное → freetext (поиск по title/description)
  */
@@ -28,6 +33,26 @@ const PATTERNS = {
  */
 function normalizeSalary(raw) {
   return raw.replace(/(\d+)[kK]/, (_, n) => String(Number(n) * 1000));
+}
+
+/**
+ * Конвертирует число лет опыта в категорию, которую понимает backend
+ * (и которая совпадает со значениями кнопок experience в FilterPanel):
+ *   0       → no_experience
+ *   1–2     → between1And3
+ *   3–5     → between3And6
+ *   6+      → moreThan6
+ *
+ * @param {string} years
+ * @returns {string}
+ */
+function experienceYearsToCategory(years) {
+  const n = Number(years);
+  if (isNaN(n)) return years;
+  if (n <= 0) return 'no_experience';
+  if (n < 3)  return 'between1And3';
+  if (n < 6)  return 'between3And6';
+  return 'moreThan6';
 }
 
 /**
@@ -79,7 +104,7 @@ export function parseQuery(input) {
 
   const expMatch = remaining.match(PATTERNS.experience);
   if (expMatch) {
-    result.experience = expMatch[1];
+    result.experience = experienceYearsToCategory(expMatch[1]);
     remaining = remaining.replace(expMatch[0], '');
   }
 
